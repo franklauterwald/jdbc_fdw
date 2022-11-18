@@ -4,8 +4,7 @@ MODULE_big = jdbc_fdw
 OBJS = jdbc_fdw.o option.o deparse.o connection.o jq.o
 
 PG_CPPFLAGS = -I$(libpq_srcdir)
-SHLIB_LINK = $(libpq)
-
+SHLIB_LINK = $(libpq) 
 EXTENSION = jdbc_fdw
 DATA = jdbc_fdw--1.0.sql jdbc_fdw--1.0--1.1.sql
 
@@ -15,7 +14,8 @@ JDBC_CONFIG = jdbc_config
 
 LIBDIR=/usr/lib64/
 
-SHLIB_LINK += -L$(LIBDIR) -ljvm
+SHLIB_LINK += -L$(LIBDIR) -ljvm -L /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server
+ 
 
 UNAME = $(shell uname)
 
