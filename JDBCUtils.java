@@ -51,10 +51,6 @@ public class JDBCUtils {
    *
    */
   public void createConnection(int key, String[] options) throws Exception {
-    DatabaseMetaData dbMetadata;
-    Properties jdbcProperties;
-    Class jdbcDriverClass = null;
-    Driver jdbcDriver = null;
     String driverClassName = options[0];
     String url = options[1];
     String userName = options[2];
@@ -73,9 +69,9 @@ public class JDBCUtils {
     } else if (jdbcDriverLoader.CheckIfClassIsLoaded(driverClassName) == null) {
       jdbcDriverLoader.addPath(jarfile_path);
     }
-    jdbcDriverClass = jdbcDriverLoader.loadClass(driverClassName);
-    jdbcDriver = (Driver) jdbcDriverClass.newInstance();
-    jdbcProperties = new Properties();
+    Class jdbcDriverClass = jdbcDriverLoader.loadClass(driverClassName);
+    Driver jdbcDriver = (Driver) jdbcDriverClass.newInstance();
+    Properties jdbcProperties = new Properties();
     jdbcProperties.put("user", userName);
     jdbcProperties.put("password", password);
     /* get connection from cache */
@@ -86,7 +82,6 @@ public class JDBCUtils {
       conn = jdbcDriver.connect(url, jdbcProperties);
       ConnectionHash.put(key, conn);
     }
-    dbMetadata = conn.getMetaData();
   }
 
   /*
@@ -115,24 +110,19 @@ public class JDBCUtils {
    *          resultID on success
    */
   public int createStatementID(String query) throws Exception {
-    ResultSet tmpResultSet;
-    int tmpNumberOfColumns;
-    int tmpNumberOfAffectedRows = 0;
-    ResultSetMetaData rSetMetadata;
-    int tmpResultSetKey;
     checkConnExist();
     tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     if (queryTimeoutValue != 0) {
       tmpStmt.setQueryTimeout(queryTimeoutValue);
     }
-    tmpResultSet = tmpStmt.executeQuery(query);
-    rSetMetadata = tmpResultSet.getMetaData();
-    tmpNumberOfColumns = rSetMetadata.getColumnCount();
-    tmpResultSetKey = initResultSetKey();
+    ResultSet tmpResultSet = tmpStmt.executeQuery(query);
+    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
+    int tmpNumberOfColumns = rSetMetadata.getColumnCount();
+    int tmpResultSetKey = initResultSetKey();
     resultSetInfoMap.put(
         tmpResultSetKey,
         new ResultSetInfo(
-            tmpResultSet, tmpNumberOfColumns, tmpNumberOfAffectedRows, null));
+            tmpResultSet, tmpNumberOfColumns, 0, null));
     return tmpResultSetKey;
   }
 
@@ -205,7 +195,6 @@ public class JDBCUtils {
    *      String. After last row null is returned.
    */
   public Object[] getResultSet(int resultSetID) throws SQLException {
-    int i = 0;
     try {
       ResultSet tmpResultSet = resultSetInfoMap.get(resultSetID).getResultSet();
       int tmpNumberOfColumns = resultSetInfoMap.get(resultSetID).getNumberOfColumns();
@@ -215,7 +204,7 @@ public class JDBCUtils {
       /* Row-by-row processing is done in jdbc_fdw.One row
        * at a time is returned to the C code. */
       if (tmpResultSet.next()) {
-        for (i = 0; i < tmpNumberOfColumns; i++) {
+        for (int i = 0; i < tmpNumberOfColumns; i++) {
           int columnType = mtData.getColumnType(i + 1);
 
           switch (columnType) {
@@ -287,14 +276,12 @@ public class JDBCUtils {
 
   /*
    * getColumnNames
-   *      Returns the column name
+   *      Returns the column names
    */
   public String[] getColumnNames(String tableName) throws SQLException {
-    int rowCount;
     checkConnExist();
     DatabaseMetaData md = conn.getMetaData();
     ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
-    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
     List<String> tmpColumnNamesList = new ArrayList<String>();
     while (tmpResultSet.next()) {
       tmpColumnNamesList.add(tmpResultSet.getString("COLUMN_NAME"));
@@ -311,7 +298,6 @@ public class JDBCUtils {
    *      Returns the column name
    */
   public String[] getColumnTypes(String tableName) throws SQLException {
-    int rowCount;
     checkConnExist();
     DatabaseMetaData md = conn.getMetaData();
     ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
