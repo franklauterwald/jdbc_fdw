@@ -22,6 +22,38 @@ typedef struct jdbcFdwExecutionState
 	int			NumberOfRows;
 }			jdbcFdwExecutionState;
 
+// keep these in sync with CInterface.java
+typedef struct JNIMethods
+{
+    jmethodID createConnection;
+    jmethodID createStatement;
+    jmethodID createStatementID;
+    jmethodID clearResultSetID;
+    jmethodID createPreparedStatement;
+    jmethodID execPreparedStatement;
+    jmethodID getResultSet;
+    jmethodID getNumberOfColumns;
+    jmethodID getTableNames;
+    jmethodID getColumnNames;
+    jmethodID getColumnTypes;
+    jmethodID getPrimaryKey;
+    jmethodID cancel;
+    jmethodID getIdentifierQuoteString;
+
+    jmethodID bindNullPreparedStatement;
+    jmethodID bindIntPreparedStatement;
+    jmethodID bindLongPreparedStatement;
+    jmethodID bindFloatPreparedStatement;
+    jmethodID bindDoublePreparedStatement;
+    jmethodID bindBooleanPreparedStatement;
+    jmethodID bindStringPreparedStatement;
+    jmethodID bindByteaPreparedStatement;
+    jmethodID bindTimePreparedStatement;
+    jmethodID bindTimeTZPreparedStatement;
+    jmethodID bindTimestampPreparedStatement;
+
+} JNIMethods;
+
 /* JDBC connection, same role as PGconn */
 typedef struct Jconn
 {
@@ -30,6 +62,7 @@ typedef struct Jconn
 	jdbcFdwExecutionState *festate;
 	char	   *q_char;
 }			Jconn;
+
 
 /* result status from JDBC */
 typedef ExecStatusType Jresult;

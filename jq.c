@@ -43,6 +43,7 @@
 
 static JNIEnv * Jenv;
 static JavaVM * jvm;
+static JNIMethods * jni_methods;
 jobject		java_call;
 static bool InterruptFlag;		/* Used for checking for SIGINT interrupt */
 
@@ -73,6 +74,9 @@ typedef struct JserverOptions
 static JserverOptions opts;
 
 /* Local function prototypes */
+static jmethodID find_jni_method_or_fail(jclass JDBCUtilsClass, char *name, char *signature);
+static void jq_load_jni_methods(jclass utils_class, JNIMethods *methods);
+
 static int	jdbc_connect_db_complete(Jconn * conn);
 static void jdbc_jvm_init(const ForeignServer * server, const UserMapping * user);
 static void jdbc_get_server_options(JserverOptions * opts, const ForeignServer * f_server, const UserMapping * f_mapping);
@@ -139,22 +143,8 @@ jdbc_sig_int_interrupt_check_process()
 
 	if (InterruptFlag == true)
 	{
-		jclass		JDBCUtilsClass;
-		jmethodID	id_cancel;
-
-		JDBCUtilsClass = (*Jenv)->FindClass(Jenv, "JDBCUtils");
-		if (JDBCUtilsClass == NULL)
-		{
-			ereport(ERROR, errmsg("JDBCUtilsClass is NULL"));
-		}
-		id_cancel = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "cancel",
-										 "()V");
-		if (id_cancel == NULL)
-		{
-			ereport(ERROR, errmsg("id_cancel is NULL"));
-		}
 		jq_exception_clear();
-		(*Jenv)->CallObjectMethod(Jenv, java_call, id_cancel);
+		(*Jenv)->CallObjectMethod(Jenv, java_call, jni_methods->cancel);
 		jq_get_exception();
 		InterruptFlag = false;
 		ereport(ERROR, errmsg("Query has been cancelled"));
@@ -238,7 +228,6 @@ jdbc_convert_object_to_datum(Oid pgtype, int32 pgtypmod, jobject obj)
 			if (value != NULL)
 				return jdbc_convert_to_pg(pgtype, pgtypmod, value);
 			else
-				/* Return 0 if value is NULL */
 				return 0;
 		}
 	}
@@ -251,7 +240,6 @@ static void
 jdbc_destroy_jvm()
 {
 	ereport(DEBUG3, (errmsg("In jdbc_destroy_jvm")));
-
 	(*jvm)->DestroyJavaVM(jvm);
 }
 
@@ -272,7 +260,6 @@ static void
 jdbc_detach_jvm()
 {
 	ereport(DEBUG3, (errmsg("In jdbc_detach_jvm")));
-
 	(*jvm)->DetachCurrentThread(jvm);
 }
 
@@ -334,9 +321,7 @@ jdbc_jvm_init(const ForeignServer * server, const UserMapping * user)
 		res = JNI_CreateJavaVM(&jvm, (void **) &Jenv, &vm_args);
 		if (res < 0)
 		{
-			ereport(ERROR,
-					(errmsg("Failed to create Java VM")
-					 ));
+			ereport(ERROR, (errmsg("Failed to create Java VM") ));
 		}
 		ereport(DEBUG3, (errmsg("Successfully created a JVM with %d MB heapsize", opts.maxheapsize)));
 		InterruptFlag = false;
@@ -364,6 +349,7 @@ jdbc_jvm_init(const ForeignServer * server, const UserMapping * user)
 			ereport(ERROR, (errmsg("JVMEnvStat: JNI_EVERSION; the specified version is not supported")));
 		}
 	}
+
 }
 
 /*
@@ -394,6 +380,7 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 	MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);	/* Switch the memory context to TopMemoryContext to avoid the
 																		 * case connection is released when execution state finished */
 	Jconn	   *conn = (Jconn *) palloc0(sizeof(Jconn));
+    jni_methods = (JNIMethods *) palloc0(sizeof(JNIMethods));
 
 	ereport(DEBUG3, (errmsg("In jdbc_create_JDBC_connection")));
 	conn->status = CONNECTION_BAD;
@@ -404,17 +391,9 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 	{
 		ereport(ERROR, errmsg("Failed to find the JDBCUtils class!"));
 	}
-	idCreate = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "createConnection",
-									"(I[Ljava/lang/String;)V");
-	if (idCreate == NULL)
-	{
-		ereport(ERROR, errmsg("Failed to find the JDBCUtils.createConnection method!"));
-	}
-	idGetIdentifierQuoteString = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getIdentifierQuoteString", "()Ljava/lang/String;");
-	if (idGetIdentifierQuoteString == NULL)
-	{
-		ereport(ERROR, errmsg("Failed to find the JDBCUtils.getIdentifierQuoteString method"));
-	}
+    jq_load_jni_methods(JDBCUtilsClass, jni_methods);
+	idCreate = jni_methods->createConnection;
+	idGetIdentifierQuoteString = jni_methods->getIdentifierQuoteString;
 
 	/*
 	 * Construct the array to pass our parameters Query timeout is an int, we
@@ -544,12 +523,7 @@ jq_exec(Jconn * conn, const char *query)
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idCreateStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "createStatement",
-											 "(Ljava/lang/String;)V");
-	if (idCreateStatement == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.createStatement method!")));
-	}
+	idCreateStatement = jni_methods->createStatement;
 	/* The query argument */
 	statement = (*Jenv)->NewStringUTF(Jenv, query);
 	if (statement == NULL)
@@ -581,12 +555,7 @@ jq_exec_id(Jconn * conn, const char *query, int *resultSetID)
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idCreateStatementID = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "createStatementID",
-											   "(Ljava/lang/String;)I");
-	if (idCreateStatementID == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.createStatementID method!")));
-	}
+	idCreateStatementID = jni_methods->createStatementID;
 	/* The query argument */
 	statement = (*Jenv)->NewStringUTF(Jenv, query);
 	if (statement == NULL)
@@ -598,7 +567,6 @@ jq_exec_id(Jconn * conn, const char *query, int *resultSetID)
 	jq_get_exception();
 	if (*resultSetID < 0)
 	{
-		/* Return Java memory */
 		(*Jenv)->DeleteLocalRef(Jenv, statement);
 		ereport(ERROR, (errmsg("Get resultSetID failed with code: %d", *resultSetID)));
 	}
@@ -621,12 +589,7 @@ jq_release_resultset_id(Jconn * conn, int resultSetID)
 
 	jq_get_JDBCUtils(conn, &JDBCUtilsClass, &JDBCUtilsObject);
 
-	idClearResultSetID = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "clearResultSetID",
-											  "(I)V");
-	if (idClearResultSetID == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.clearResultSetID method!")));
-	}
+	idClearResultSetID = jni_methods->clearResultSetID;
 	jq_exception_clear();
 	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idClearResultSetID, resultSetID);
 	jq_get_exception();
@@ -661,11 +624,7 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 	ExecClearTuple(tupleSlot);
 	jdbc_sig_int_interrupt_check_process();
 
-	idNumberOfColumns = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getNumberOfColumns", "(I)I");
-	if (idNumberOfColumns == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getNumberOfColumns method")));
-	}
+	idNumberOfColumns = jni_methods->getNumberOfColumns;
 	jq_exception_clear();
 	numberOfColumns = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, idNumberOfColumns, resultSetID);
 	jq_get_exception();
@@ -679,18 +638,14 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 		ereport(ERROR, (errmsg("Error pushing local java frame")));
 	}
 
-	idResultSet = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getResultSet", "(I)[Ljava/lang/Object;");
-	if (idResultSet == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getResultSet method!")));
-	}
+	idResultSet = jni_methods->getResultSet;
 	/* Allocate pointers to the row data */
 	jq_exception_clear();
 	rowArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idResultSet, resultSetID);
 	jq_get_exception();
 	if (rowArray != NULL)
 	{
-		if(retrieved_attrs != NIL){
+		if(retrieved_attrs != NIL) {
 
 			values = (char **) palloc0(tupleDescriptor->natts * sizeof(char *));
 			for (i = 0; i < retrieved_attrs->length; i++)
@@ -706,7 +661,7 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 					tupleSlot->tts_values[column_index] = jdbc_convert_object_to_datum(pgtype, pgtypmod, obj);
 				}
 			}
-		}else{
+		} else {
 			jsize size = (*Jenv)->GetArrayLength(Jenv, rowArray);
 			memset(tupleSlot->tts_values, 0, sizeof(Datum) * (int)size);
 			memset(tupleSlot->tts_isnull, true, sizeof(bool) * (int)size);
@@ -746,12 +701,7 @@ jq_exec_prepared(Jconn * conn, const int *paramLengths,
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idExecPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "execPreparedStatement",
-												   "(I)V");
-	if (idExecPreparedStatement == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.execPreparedStatement method!")));
-	}
+	idExecPreparedStatement = jni_methods->execPreparedStatement;
 	jq_exception_clear();
 	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idExecPreparedStatement, resultSetID);
 	jq_get_exception();
@@ -801,12 +751,7 @@ jq_prepare(Jconn * conn, const char *query,
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idCreatePreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "createPreparedStatement",
-													 "(Ljava/lang/String;)I");
-	if (idCreatePreparedStatement == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.createPreparedStatement method!")));
-	}
+	idCreatePreparedStatement = jni_methods->createPreparedStatement;
 	/* The query argument */
 	statement = (*Jenv)->NewStringUTF(Jenv, query);
 	if (statement == NULL)
@@ -958,12 +903,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 
 	if (*isnull)
 	{
-		idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindNullPreparedStatement",
-													   "(II)V");
-		if (idBindPreparedStatement == NULL)
-		{
-			ereport(ERROR, errmsg("Failed to find the JDBCUtils.bind method!"));
-		}
+		idBindPreparedStatement = jni_methods->bindNullPreparedStatement;
 		jq_exception_clear();
 		(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, attnum, resultSetID);
 		jq_get_exception();
@@ -977,12 +917,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				int16		dat = DatumGetInt16(value);
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindIntPreparedStatement",
-															   "(III)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindInt method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindIntPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -992,12 +927,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				int32		dat = DatumGetInt32(value);
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindIntPreparedStatement",
-															   "(III)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindInt method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindNullPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1007,12 +937,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				int64		dat = DatumGetInt64(value);
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindLongPreparedStatement",
-															   "(JII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindLong method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindLongPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1024,12 +949,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				float4		dat = DatumGetFloat4(value);
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindFloatPreparedStatement",
-															   "(FII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindFloat method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindFloatPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1039,12 +959,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				float8		dat = DatumGetFloat8(value);
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindDoublePreparedStatement",
-															   "(DII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindDouble method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindDoublePreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1056,12 +971,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				Datum		valueDatum = DirectFunctionCall1(numeric_float8, value);
 				float8		dat = DatumGetFloat8(valueDatum);
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindDoublePreparedStatement",
-															   "(DII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindDouble method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindDoublePreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1071,12 +981,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				bool		dat = (bool) value;
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindBooleanPreparedStatement",
-															   "(ZII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindBoolean method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindBooleanPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1105,12 +1010,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				(*Jenv)->SetByteArrayRegion(Jenv, retArray, 0, len, (jbyte *) (dat));
 
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindByteaPreparedStatement",
-															   "([BJII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindBytea method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindByteaPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, retArray, len, attnum, resultSetID);
 				jq_get_exception();
@@ -1131,19 +1031,11 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				getTypeOutputInfo(type, &outputFunctionId, &typeVarLength);
 				outputString = OidOutputFunctionCall(outputFunctionId, value);
 				dat = (*Jenv)->NewStringUTF(Jenv, outputString);
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindStringPreparedStatement",
-															   "(Ljava/lang/String;II)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					/* Return Java memory */
-					(*Jenv)->DeleteLocalRef(Jenv, dat);
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindString method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindStringPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 
-				/* Return Java memory */
 				(*Jenv)->DeleteLocalRef(Jenv, dat);
 				break;
 			}
@@ -1158,14 +1050,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				getTypeOutputInfo(type, &outputFunctionId, &typeVarLength);
 				outputString = OidOutputFunctionCall(outputFunctionId, value);
 				dat = (*Jenv)->NewStringUTF(Jenv, outputString);
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindTimePreparedStatement",
-															   "(Ljava/lang/String;II)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					/* Return Java memory */
-					(*Jenv)->DeleteLocalRef(Jenv, dat);
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindTime method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindTimePreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1185,14 +1070,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				getTypeOutputInfo(type, &outputFunctionId, &typeVarLength);
 				outputString = OidOutputFunctionCall(outputFunctionId, value);
 				dat = (*Jenv)->NewStringUTF(Jenv, outputString);
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindTimeTZPreparedStatement",
-															   "(Ljava/lang/String;II)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					/* Return Java memory */
-					(*Jenv)->DeleteLocalRef(Jenv, dat);
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindTimeTZ method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindTimeTZPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
@@ -1211,12 +1089,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				Timestamp	valueTimestamp = DatumGetTimestamp(value);		/* Already in UTC time zone */
 				int64		valueMicroSecs = valueTimestamp + POSTGRES_TO_UNIX_EPOCH_USECS;
 
-				idBindPreparedStatement = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "bindTimestampPreparedStatement",
-															   "(JII)V");
-				if (idBindPreparedStatement == NULL)
-				{
-					ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bindTimestamp method!")));
-				}
+				idBindPreparedStatement = jni_methods->bindTimestampPreparedStatement;
 				jq_exception_clear();
 				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, valueMicroSecs, attnum, resultSetID);
 				jq_get_exception();
@@ -1354,44 +1227,17 @@ jq_get_column_infos(Jconn * conn, char *tablename)
 
 	jdbc_sig_int_interrupt_check_process();
 	/* getColumnNames */
-	idGetColumnNames = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getColumnNames", "(Ljava/lang/String;)[Ljava/lang/String;");
-	if (idGetColumnNames == NULL)
-	{
-		(*Jenv)->DeleteLocalRef(Jenv, jtablename);
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getColumnNames method")));
-	}
+	idGetColumnNames = jni_methods->getColumnNames;
 	jq_exception_clear();
 	columnNamesArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetColumnNames, jtablename);
 	jq_get_exception();
 	/* getColumnTypes */
-	idGetColumnTypes = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getColumnTypes", "(Ljava/lang/String;)[Ljava/lang/String;");
-	if (idGetColumnTypes == NULL)
-	{
-		(*Jenv)->DeleteLocalRef(Jenv, jtablename);
-		if (columnNamesArray != NULL)
-		{
-			(*Jenv)->DeleteLocalRef(Jenv, columnNamesArray);
-		}
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getColumnTypes method")));
-	}
+	idGetColumnTypes = jni_methods->getColumnTypes;
 	jq_exception_clear();
 	columnTypesArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetColumnTypes, jtablename);
 	jq_get_exception();
 	/* getPrimaryKey */
-	idGetPrimaryKey = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getPrimaryKey", "(Ljava/lang/String;)[Ljava/lang/String;");
-	if (idGetPrimaryKey == NULL)
-	{
-		(*Jenv)->DeleteLocalRef(Jenv, jtablename);
-		if (columnNamesArray != NULL)
-		{
-			(*Jenv)->DeleteLocalRef(Jenv, columnNamesArray);
-		}
-		if (columnTypesArray != NULL)
-		{
-			(*Jenv)->DeleteLocalRef(Jenv, columnTypesArray);
-		}
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getColumnTypes method")));
-	}
+	idGetPrimaryKey = jni_methods->getPrimaryKey;
 	jq_exception_clear();
 	primaryKeyArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetPrimaryKey, jtablename);
 	jq_get_exception();
@@ -1476,11 +1322,7 @@ jq_get_table_names(Jconn * conn)
 	jq_get_JDBCUtils(conn, &JDBCUtilsClass, &JDBCUtilsObject);
 
 	jdbc_sig_int_interrupt_check_process();
-	idGetTableNames = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getTableNames", "()[Ljava/lang/String;");
-	if (idGetTableNames == NULL)
-	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getTableNames method")));
-	}
+	idGetTableNames = jni_methods->getTableNames;
 	jq_exception_clear();
 	tableNameArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetTableNames);
 	jq_get_exception();
@@ -1544,4 +1386,51 @@ jq_get_JDBCUtils(Jconn *conn, jclass *JDBCUtilsClass, jobject *JDBCUtilsObject)
 	{
 		ereport(ERROR, (errmsg("JDBCUtils class could not be created")));
 	}
+}
+
+static jmethodID find_jni_method_or_fail(jclass JDBCUtilsClass, char *name, char *signature)
+{
+	jmethodID   method;
+
+	jdbc_sig_int_interrupt_check_process();
+	method = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, name, signature);
+	if (method == NULL)
+	{
+		ereport(ERROR, (errmsg("Failed to find the method %s", name)));
+	}
+    return method;
+}
+
+static void jq_load_jni_methods(jclass utils_class, JNIMethods *methods)
+{
+    methods->createConnection = find_jni_method_or_fail(utils_class, "createConnection", "(I[Ljava/lang/String;)V");
+    methods->createStatement = find_jni_method_or_fail(utils_class, "createStatement", "(Ljava/lang/String;)V");
+    methods->createStatementID = find_jni_method_or_fail(utils_class, "createStatementID", "(Ljava/lang/String;)I");
+    methods->clearResultSetID = find_jni_method_or_fail(utils_class, "clearResultSetID", "(I)V");
+    methods->createPreparedStatement = find_jni_method_or_fail(utils_class, "createPreparedStatement", "(Ljava/lang/String;)I");
+    methods->execPreparedStatement = find_jni_method_or_fail(utils_class, "execPreparedStatement", "(I)V");
+    methods->getResultSet = find_jni_method_or_fail(utils_class, "getResultSet", "(I)[Ljava/lang/Object;");
+    methods->getNumberOfColumns = find_jni_method_or_fail(utils_class, "getNumberOfColumns", "(I)I");
+    methods->getTableNames = find_jni_method_or_fail(utils_class, "getTableNames", "()[Ljava/lang/String;");
+    methods->getColumnNames = find_jni_method_or_fail(utils_class, "getColumnNames", "(Ljava/lang/String;)[Ljava/lang/String;");
+    methods->getColumnTypes = find_jni_method_or_fail(utils_class, "getColumnTypes", "(Ljava/lang/String;)[Ljava/lang/String;");
+    methods->getPrimaryKey = find_jni_method_or_fail(utils_class, "getPrimaryKey", "(Ljava/lang/String;)[Ljava/lang/String;");
+    methods->cancel = find_jni_method_or_fail(utils_class, "cancel", "()V");
+    methods->getIdentifierQuoteString = find_jni_method_or_fail(utils_class, "getIdentifierQuoteString", "()Ljava/lang/String;");
+
+    methods->bindNullPreparedStatement = find_jni_method_or_fail(utils_class, "bindNullPreparedStatement", "(II)V");
+    methods->bindIntPreparedStatement = find_jni_method_or_fail(utils_class, "bindIntPreparedStatement", "(III)V");
+    methods->bindLongPreparedStatement = find_jni_method_or_fail(utils_class, "bindLongPreparedStatement", "(JII)V");
+    methods->bindFloatPreparedStatement = find_jni_method_or_fail(utils_class, "bindFloatPreparedStatement", "(FII)V");
+    methods->bindDoublePreparedStatement = find_jni_method_or_fail(utils_class, "bindDoublePreparedStatement", "(DII)V");
+    methods->bindBooleanPreparedStatement = find_jni_method_or_fail(utils_class, "bindBooleanPreparedStatement", "(ZII)V");
+    methods->bindStringPreparedStatement = find_jni_method_or_fail(utils_class, "bindStringPreparedStatement",
+        "(Ljava/lang/String;II)V");
+    methods->bindByteaPreparedStatement = find_jni_method_or_fail(utils_class, "bindByteaPreparedStatement", "([BJII)V");
+    methods->bindTimePreparedStatement = find_jni_method_or_fail(utils_class, "bindTimePreparedStatement",
+        "(Ljava/lang/String;II)V");
+    methods->bindTimeTZPreparedStatement = find_jni_method_or_fail(utils_class, "bindTimeTZPreparedStatement",
+	    "(Ljava/lang/String;II)V");
+    methods->bindTimestampPreparedStatement = find_jni_method_or_fail(utils_class, "bindTimestampPreparedStatement",
+        "(JII)V");
 }
