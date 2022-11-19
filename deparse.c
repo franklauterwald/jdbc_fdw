@@ -50,11 +50,7 @@
 #include "commands/defrem.h"
 #include "nodes/nodeFuncs.h"
 #include "optimizer/clauses.h"
-#if PG_VERSION_NUM < 120000
-#include "optimizer/var.h"
-#else
 #include "optimizer/optimizer.h"
-#endif
 #include "parser/parsetree.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
@@ -136,11 +132,7 @@ static void jdbc_deparse_string_literal(StringInfo buf, const char *val);
 static void jdbc_deparse_expr(Expr *expr, deparse_expr_cxt *context);
 static void jdbc_deparse_var(Var *node, deparse_expr_cxt *context);
 static void jdbc_deparse_const(Const *node, deparse_expr_cxt *context);
-#if PG_VERSION_NUM < 120000
-static void jdbc_deparse_array_ref(ArrayRef * node, deparse_expr_cxt *context);
-#else
 static void jdbc_deparse_array_ref(SubscriptingRef *node, deparse_expr_cxt *context);
-#endif
 static void jdbc_deparse_func_expr(FuncExpr *node, deparse_expr_cxt *context);
 static void jdbc_deparse_op_expr(OpExpr *node, deparse_expr_cxt *context);
 static void jdbc_deparse_operator_name(StringInfo buf, Form_pg_operator opform);
@@ -463,15 +455,9 @@ jdbc_foreign_expr_walker(Node *node,
 				return false;
 			}
 			break;
-#if PG_VERSION_NUM < 120000
-		case T_ArrayRef:
-			{
-				ArrayRef   *ar = (ArrayRef *) node;;
-#else
 		case T_SubscriptingRef:
 			{
 				SubscriptingRef *ar = (SubscriptingRef *) node;
-#endif
 
 				/* Assignment should not be in restrictions. */
 				if (ar->refassgnexpr != NULL)
@@ -1040,11 +1026,7 @@ jdbc_deparse_select_sql(StringInfo buf,
 	 * Core code already has some lock on each rel being planned, so we can
 	 * use NoLock here.
 	 */
-#if PG_VERSION_NUM < 130000
-	rel = heap_open(rte->relid, NoLock);
-#else
 	rel = table_open(rte->relid, NoLock);
-#endif
 
 	/*
 	 * Construct SELECT list
@@ -1066,11 +1048,7 @@ jdbc_deparse_select_sql(StringInfo buf,
 	appendStringInfoString(buf, " FROM ");
 	jdbc_deparse_relation(buf, rel, q_char);
 
-#if PG_VERSION_NUM < 130000
-	heap_close(rel, NoLock);
-#else
 	table_close(rel, NoLock);
-#endif
 }
 
 /*
@@ -1428,11 +1406,7 @@ jdbc_deparse_column_ref(StringInfo buf, int varno, int varattno, PlannerInfo *ro
 	 * option, use attribute name.
 	 */
 	if (colname == NULL)
-#if PG_VERSION_NUM >= 110000
 		colname = get_attname(rte->relid, varattno, false);
-#else
-		colname = get_relid_attribute_name(rte->relid, varattno);
-#endif
 
 	appendStringInfoString(buf, jdbc_quote_identifier(colname, q_char, false));
 }
@@ -1524,11 +1498,7 @@ jdbc_deparse_aggref(Aggref *node, deparse_expr_cxt *context)
 			first = false;
 
 			/* Add VARIADIC */
-#if PG_VERSION_NUM < 130000
-			if (use_variadic && lnext(arg) == NULL)
-#else
 			if (use_variadic && lnext(node->args, arg) == NULL)
-#endif
 				appendStringInfoString(buf, "VARIADIC ");
 
 			jdbc_deparse_expr((Expr *) n, context);
@@ -1661,15 +1631,9 @@ jdbc_deparse_expr(Expr *node, deparse_expr_cxt *context)
 			elog(ERROR, "Parameter is unsupported");
 			Assert(false);
 			break;
-#if PG_VERSION_NUM < 120000
-		case T_ArrayRef:
-			jdbc_deparse_array_ref((ArrayRef *) node, context);
-			break;
-#else
 		case T_SubscriptingRef:
 			jdbc_deparse_array_ref((SubscriptingRef *) node, context);
 			break;
-#endif
 		case T_FuncExpr:
 			jdbc_deparse_func_expr((FuncExpr *) node, context);
 			break;
@@ -1820,11 +1784,7 @@ jdbc_deparse_const(Const *node, deparse_expr_cxt *context)
  * Deparse an array subscript expression.
  */
 static void
-#if PG_VERSION_NUM < 120000
-jdbc_deparse_array_ref(ArrayRef * node, deparse_expr_cxt *context)
-#else
 jdbc_deparse_array_ref(SubscriptingRef *node, deparse_expr_cxt *context)
-#endif
 {
 	StringInfo	buf = context->buf;
 	ListCell   *lowlist_item;
@@ -1857,11 +1817,7 @@ jdbc_deparse_array_ref(SubscriptingRef *node, deparse_expr_cxt *context)
 		{
 			jdbc_deparse_expr(lfirst(lowlist_item), context);
 			appendStringInfoChar(buf, ':');
-#if PG_VERSION_NUM < 130000
-			lowlist_item = lnext(lowlist_item);
-#else
 			lowlist_item = lnext(node->reflowerindexpr, lowlist_item);
-#endif
 		}
 		jdbc_deparse_expr(lfirst(uplist_item), context);
 		appendStringInfoChar(buf, ']');
@@ -1924,13 +1880,8 @@ jdbc_deparse_func_expr(FuncExpr *node, deparse_expr_cxt *context)
 	{
 		if (!first)
 			appendStringInfoString(buf, ", ");
-#if PG_VERSION_NUM < 130000
-		if (use_variadic && lnext(arg) == NULL)
-			appendStringInfoString(buf, "VARIADIC ");
-#else
 		if (use_variadic && lnext(node->args, arg) == NULL)
 			appendStringInfoString(buf, "VARIADIC ");
-#endif
 		jdbc_deparse_expr((Expr *) lfirst(arg), context);
 		first = false;
 	}
