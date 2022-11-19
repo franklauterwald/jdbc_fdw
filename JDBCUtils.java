@@ -32,7 +32,7 @@ public class JDBCUtils implements CInterface {
   private static JDBCDriverLoader jdbcDriverLoader;
   private int queryTimeoutValue;
   private Statement globalStmt;
-  private static ConcurrentHashMap<Integer, Connection> ConnectionHash = new ConcurrentHashMap<Integer, Connection>();
+  private static ConcurrentHashMap<Integer, Connection> connectionHash = new ConcurrentHashMap<Integer, Connection>();
   private static int resultSetKey = 1;
   private static ConcurrentHashMap<Integer, ResultSetInfo> resultSetInfoMap =
       new ConcurrentHashMap<Integer, ResultSetInfo>();
@@ -69,12 +69,12 @@ public class JDBCUtils implements CInterface {
     jdbcProperties.put("user", userName);
     jdbcProperties.put("password", password);
     /* get connection from cache */
-    if (ConnectionHash.containsKey(key)) {
-      conn = ConnectionHash.get(key);
+    if (connectionHash.containsKey(key)) {
+      conn = connectionHash.get(key);
     }
     if (conn == null) {
       conn = jdbcDriver.connect(url, jdbcProperties);
-      ConnectionHash.put(key, conn);
+      connectionHash.put(key, conn);
     }
   }
 
