@@ -31,8 +31,7 @@ public class JDBCUtils implements CInterface {
   private Connection conn = null;
   private static JDBCDriverLoader jdbcDriverLoader;
   private int queryTimeoutValue;
-  private Statement tmpStmt;
-  private PreparedStatement tmpPstmt;
+  private Statement globalStmt;
   private static ConcurrentHashMap<Integer, Connection> ConnectionHash = new ConcurrentHashMap<Integer, Connection>();
   private static int resultSetKey = 1;
   private static ConcurrentHashMap<Integer, ResultSetInfo> resultSetInfoMap =
@@ -53,10 +52,9 @@ public class JDBCUtils implements CInterface {
     String url = options[1];
     String userName = options[2];
     String password = options[3];
-    String qTimeoutValue = options[4];
+    queryTimeoutValue = Integer.parseInt(options[4]);
     String fileName = options[5];
 
-    queryTimeoutValue = Integer.parseInt(qTimeoutValue);
     File JarFile = new File(fileName);
     String jarfile_path = JarFile.toURI().toURL().toString();
     if (jdbcDriverLoader == null) {
@@ -92,11 +90,11 @@ public class JDBCUtils implements CInterface {
      *  Todo: return only necessary column.
      */
     assertConnExists();
-    tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    globalStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     if (queryTimeoutValue != 0) {
-      tmpStmt.setQueryTimeout(queryTimeoutValue);
+      globalStmt.setQueryTimeout(queryTimeoutValue);
     }
-    tmpStmt.executeQuery(query);
+    globalStmt.executeQuery(query);
   }
 
   /*
@@ -110,11 +108,11 @@ public class JDBCUtils implements CInterface {
   @Override
   public int createStatementID(String query) throws Exception {
     assertConnExists();
-    tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    globalStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     if (queryTimeoutValue != 0) {
-      tmpStmt.setQueryTimeout(queryTimeoutValue);
+      globalStmt.setQueryTimeout(queryTimeoutValue);
     }
-    ResultSet tmpResultSet = tmpStmt.executeQuery(query);
+    ResultSet tmpResultSet = globalStmt.executeQuery(query);
     ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
     int tmpNumberOfColumns = rSetMetadata.getColumnCount();
     int tmpResultSetKey = initResultSetKey();
@@ -253,37 +251,28 @@ public class JDBCUtils implements CInterface {
   public String[] getTableNames() throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
-    ResultSet tmpResultSet = md.getTables(null, null, "%", null);
-
-    List<String> tmpTableNamesList = new ArrayList<String>();
-    while (tmpResultSet.next()) {
-      tmpTableNamesList.add(tmpResultSet.getString(3));
+    ResultSet rs = md.getTables(null, null, "%", null);
+    List<String> tableNamesList = new ArrayList<String>();
+    while (rs.next()) {
+      tableNamesList.add(rs.getString(3));
     }
-    String[] tmpTableNames = new String[tmpTableNamesList.size()];
-    for (int i = 0; i < tmpTableNamesList.size(); i++) {
-      tmpTableNames[i] = tmpTableNamesList.get(i);
-    }
-    return tmpTableNames;
+    return (String[]) tableNamesList.toArray();
   }
 
   /*
    * getColumnNames
    *      Returns the column names
-   * Called from C
    */
+  @Override
   public String[] getColumnNames(String tableName) throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
-    ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
-    List<String> tmpColumnNamesList = new ArrayList<String>();
-    while (tmpResultSet.next()) {
-      tmpColumnNamesList.add(tmpResultSet.getString("COLUMN_NAME"));
+    ResultSet rs = md.getColumns(null, null, tableName, null);
+    List<String> columnNamesList = new ArrayList<String>();
+    while (rs.next()) {
+      columnNamesList.add(rs.getString("COLUMN_NAME"));
     }
-    String[] tmpColumnNames = new String[tmpColumnNamesList.size()];
-    for (int i = 0; i < tmpColumnNamesList.size(); i++) {
-      tmpColumnNames[i] = tmpColumnNamesList.get(i);
-    }
-    return tmpColumnNames;
+    return (String[]) columnNamesList.toArray();
   }
 
   /*
@@ -331,14 +320,9 @@ public class JDBCUtils implements CInterface {
    */
   protected void closeStatement() throws SQLException {
     resultSetInfoMap.clear();
-
-    if (tmpStmt != null) {
-      tmpStmt.close();
-      tmpStmt = null;
-    }
-    if (tmpPstmt != null) {
-      tmpPstmt.close();
-      tmpPstmt = null;
+    if (globalStmt != null) {
+      globalStmt.close();
+      globalStmt = null;
     }
   }
 
