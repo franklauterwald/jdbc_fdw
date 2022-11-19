@@ -470,10 +470,6 @@ public class JDBCUtils implements CInterface {
         this.resultSetKey = 1;
       }
       this.resultSetKey++;
-      /* resultSetKey full */
-      if (this.resultSetKey == datum) {
-        throw new SQLException("resultSetKey is full");
-      }
     }
     return this.resultSetKey;
   }
