@@ -180,14 +180,6 @@ public class JDBCUtils implements CInterface {
   }
 
   /*
-   * getNumberOfAffectedRows
-   *      Returns numberOfAffectedRows
-   */
-  protected int getNumberOfAffectedRows(int resultSetID) throws SQLException {
-    return resultSetInfoMap.get(resultSetID).getNumberOfAffectedRows();
-  }
-
-  /*
    * getResultSet
    *      Returns the result set that is returned from the foreign database
    *      after execution of the query to C code. One row is returned at a time
