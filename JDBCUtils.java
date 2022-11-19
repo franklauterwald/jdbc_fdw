@@ -443,7 +443,7 @@ public class JDBCUtils implements CInterface {
   protected void assertStatementNotNull(PreparedStatement pstmt) throws IllegalArgumentException {
     if (pstmt == null) {
       throw new IllegalArgumentException(
-          "Must create a prior prepared statement before execute it");
+          "Must create a prior prepared statement before executing it");
     }
   }
 
@@ -462,7 +462,6 @@ public class JDBCUtils implements CInterface {
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setNull(attnum, Types.NULL);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -474,7 +473,6 @@ public class JDBCUtils implements CInterface {
       throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setInt(attnum, values);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -486,7 +484,6 @@ public class JDBCUtils implements CInterface {
       throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setLong(attnum, values);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -498,7 +495,6 @@ public class JDBCUtils implements CInterface {
       throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setFloat(attnum, values);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -522,7 +518,6 @@ public class JDBCUtils implements CInterface {
       throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setBoolean(attnum, values);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -534,7 +529,6 @@ public class JDBCUtils implements CInterface {
       throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setString(attnum, values);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -547,7 +541,6 @@ public class JDBCUtils implements CInterface {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     InputStream targetStream = new ByteArrayInputStream(dat);
     tmpPstmt.setBinaryStream(attnum, targetStream, length);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -561,7 +554,6 @@ public class JDBCUtils implements CInterface {
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
     tmpPstmt.setObject(attnum, localTime);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -576,7 +568,6 @@ public class JDBCUtils implements CInterface {
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
     tmpPstmt.setObject(attnum, localTime);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -607,7 +598,6 @@ public class JDBCUtils implements CInterface {
     Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
     Timestamp timestamp = Timestamp.from(instant);
     setTimestamp(tmpPstmt, attnum, timestamp);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
