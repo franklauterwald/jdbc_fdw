@@ -145,19 +145,19 @@ jdbc_sig_int_interrupt_check_process()
 		JDBCUtilsClass = (*Jenv)->FindClass(Jenv, "JDBCUtils");
 		if (JDBCUtilsClass == NULL)
 		{
-			elog(ERROR, "JDBCUtilsClass is NULL");
+			ereport(ERROR, errmsg("JDBCUtilsClass is NULL"));
 		}
 		id_cancel = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "cancel",
 										 "()V");
 		if (id_cancel == NULL)
 		{
-			elog(ERROR, "id_cancel is NULL");
+			ereport(ERROR, errmsg("id_cancel is NULL"));
 		}
 		jq_exception_clear();
 		(*Jenv)->CallObjectMethod(Jenv, java_call, id_cancel);
 		jq_get_exception();
 		InterruptFlag = false;
-		elog(ERROR, "Query has been cancelled");
+		ereport(ERROR, errmsg("Query has been cancelled"));
 	}
 }
 
@@ -177,7 +177,7 @@ jdbc_convert_string_to_cstring(jobject java_cstring)
 	JavaString = (*Jenv)->FindClass(Jenv, "java/lang/String");
 	if (!((*Jenv)->IsInstanceOf(Jenv, java_cstring, JavaString)))
 	{
-		elog(ERROR, "Object not an instance of String class");
+		ereport(ERROR, errmsg("Object not an instance of String class"));
 	}
 
 	if (java_cstring != NULL)
@@ -954,7 +954,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 	jq_get_JDBCUtils(conn, &JDBCUtilsClass, &JDBCUtilsObject);
 
 	attnum++;
-	elog(DEBUG2, "jdbc_fdw : %s %d type=%u ", __func__, attnum, type);
+	ereport(DEBUG2, errmsg("jdbc_fdw : %s %d type=%u ", __func__, attnum, type));
 
 	if (*isnull)
 	{
@@ -962,7 +962,7 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 													   "(II)V");
 		if (idBindPreparedStatement == NULL)
 		{
-			ereport(ERROR, (errmsg("Failed to find the JDBCUtils.bind method!")));
+			ereport(ERROR, errmsg("Failed to find the JDBCUtils.bind method!"));
 		}
 		jq_exception_clear();
 		(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, attnum, resultSetID);
@@ -1250,7 +1250,7 @@ jdbc_convert_to_pg(Oid pgtyp, int pgtypmod, char *value)
 	/* get the type's output function */
 	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(pgtyp));
 	if (!HeapTupleIsValid(tuple))
-		elog(ERROR, "cache lookup failed for type%u", pgtyp);
+		ereport(ERROR, errmsg("cache lookup failed for type %u", pgtyp));
 
 	typeinput = ((Form_pg_type) GETSTRUCT(tuple))->typinput;
 	typemod = ((Form_pg_type) GETSTRUCT(tuple))->typtypmod;
