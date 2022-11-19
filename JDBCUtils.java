@@ -449,9 +449,9 @@ public class JDBCUtils implements CInterface {
 
   protected PreparedStatement getValidatedStatement(int resultSetID) {
     assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
-    return tmpPstmt;
+    PreparedStatement stmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    assertStatementNotNull(stmt);
+    return stmt;
   }
 
   /*
@@ -460,8 +460,8 @@ public class JDBCUtils implements CInterface {
    */
   @Override
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setNull(attnum, Types.NULL);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
+    stmt.setNull(attnum, Types.NULL);
   }
 
   /*
@@ -469,10 +469,10 @@ public class JDBCUtils implements CInterface {
    *      Bind the value to the PreparedStatement object based on the query
    */
   @Override
-  public void bindIntPreparedStatement(int values, int attnum, int resultSetID)
+  public void bindIntPreparedStatement(int value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setInt(attnum, values);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
+    stmt.setInt(attnum, value);
   }
 
   /*
@@ -480,10 +480,10 @@ public class JDBCUtils implements CInterface {
    *      Bind the value to the PreparedStatement object based on the query
    */
   @Override
-  public void bindLongPreparedStatement(long values, int attnum, int resultSetID)
+  public void bindLongPreparedStatement(long value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setLong(attnum, values);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
+    stmt.setLong(attnum, value);
   }
 
   /*
@@ -491,10 +491,10 @@ public class JDBCUtils implements CInterface {
    *      Bind the value to the PreparedStatement object based on the query
    */
   @Override
-  public void bindFloatPreparedStatement(float values, int attnum, int resultSetID)
+  public void bindFloatPreparedStatement(float value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setFloat(attnum, values);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
+    stmt.setFloat(attnum, value);
   }
 
   /*
@@ -525,10 +525,10 @@ public class JDBCUtils implements CInterface {
    *      Bind the value to the PreparedStatement object based on the query
    */
   @Override
-  public void bindStringPreparedStatement(String values, int attnum, int resultSetID)
+  public void bindStringPreparedStatement(String value, int attnum, int resultSetID)
       throws SQLException {
     PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setString(attnum, values);
+    tmpPstmt.setString(attnum, value);
   }
 
   /*
@@ -548,12 +548,12 @@ public class JDBCUtils implements CInterface {
    *      Bind the value to the PreparedStatement object based on the query
    */
   @Override
-  public void bindTimePreparedStatement(String values, int attnum, int resultSetID)
+  public void bindTimePreparedStatement(String value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
-    LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
-    tmpPstmt.setObject(attnum, localTime);
+    LocalTime localTime = LocalTime.parse(value, DateTimeFormatter.ofPattern(pattern));
+    stmt.setObject(attnum, localTime);
   }
 
   /*
@@ -562,28 +562,28 @@ public class JDBCUtils implements CInterface {
    *      set with localtime: might lost time-zone
    */
   @Override
-  public void bindTimeTZPreparedStatement(String values, int attnum, int resultSetID)
+  public void bindTimeTZPreparedStatement(String value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
-    LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
-    tmpPstmt.setObject(attnum, localTime);
+    LocalTime localTime = LocalTime.parse(value, DateTimeFormatter.ofPattern(pattern));
+    stmt.setObject(attnum, localTime);
   }
 
   /*
    * Set timestamp to prepared statement
    * Use the UTC time zone as default to avoid being affected by the JVM time zone
    */
-  private void setTimestamp(PreparedStatement preparedStatement, int attnum, Timestamp timestamp)
+  private void setTimestamp(PreparedStatement stmt, int attnum, Timestamp timestamp)
     throws SQLException {
       java.util.Calendar cal = Calendar.getInstance();
       cal.setTimeZone(TimeZone.getTimeZone("UTC"));
       try {
         /* Specify time zone (cal) if possible */
-        preparedStatement.setTimestamp(attnum, timestamp, cal);
+        stmt.setTimestamp(attnum, timestamp, cal);
       } catch (SQLFeatureNotSupportedException e) {
         /* GridDB only, no calendar support in setTimestamp() */
-        preparedStatement.setTimestamp(attnum, timestamp);
+        stmt.setTimestamp(attnum, timestamp);
       }
     }
 
@@ -594,10 +594,10 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
     Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
     Timestamp timestamp = Timestamp.from(instant);
-    setTimestamp(tmpPstmt, attnum, timestamp);
+    setTimestamp(stmt, attnum, timestamp);
   }
 
   /*
