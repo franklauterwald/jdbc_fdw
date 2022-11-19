@@ -94,7 +94,7 @@ public class JDBCUtils {
      *  because jvm can only return String[] - resultRow.
      *  Todo: return only necessary column.
      */
-    checkConnExist();
+    assertConnExists();
     tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     if (queryTimeoutValue != 0) {
       tmpStmt.setQueryTimeout(queryTimeoutValue);
@@ -110,7 +110,7 @@ public class JDBCUtils {
    *          resultID on success
    */
   public int createStatementID(String query) throws Exception {
-    checkConnExist();
+    assertConnExists();
     tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     if (queryTimeoutValue != 0) {
       tmpStmt.setQueryTimeout(queryTimeoutValue);
@@ -131,7 +131,7 @@ public class JDBCUtils {
    *      clear ResultSetID
    */
   public void clearResultSetID(int resultSetID) throws SQLException {
-    checkConnExist();
+    assertConnExists();
     resultSetInfoMap.remove(resultSetID);
   }
 
@@ -143,7 +143,7 @@ public class JDBCUtils {
    *          resultID on success
    */
   public int createPreparedStatement(String query) throws Exception {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = (PreparedStatement) conn.prepareStatement(query);
     if (queryTimeoutValue != 0) {
       tmpPstmt.setQueryTimeout(queryTimeoutValue);
@@ -158,9 +158,9 @@ public class JDBCUtils {
    *      Create a PreparedStatement object based on the query
    */
   public void execPreparedStatement(int resultSetID) throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     int tmpNumberOfAffectedRows = tmpPstmt.executeUpdate();
     tmpPstmt.clearParameters();
 
@@ -259,7 +259,7 @@ public class JDBCUtils {
    *      Returns the column name
    */
   public String[] getTableNames() throws SQLException {
-    checkConnExist();
+    assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
     ResultSet tmpResultSet = md.getTables(null, null, "%", null);
 
@@ -279,7 +279,7 @@ public class JDBCUtils {
    *      Returns the column names
    */
   public String[] getColumnNames(String tableName) throws SQLException {
-    checkConnExist();
+    assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
     ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
     List<String> tmpColumnNamesList = new ArrayList<String>();
@@ -298,7 +298,7 @@ public class JDBCUtils {
    *      Returns the column name
    */
   public String[] getColumnTypes(String tableName) throws SQLException {
-    checkConnExist();
+    assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
     ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
     ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
@@ -368,7 +368,7 @@ public class JDBCUtils {
    *      Returns the column name
    */
   public String[] getPrimaryKey(String tableName) throws SQLException {
-    checkConnExist();
+    assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
     ResultSet tmpResultSet = md.getPrimaryKeys(null, null, tableName);
     ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
@@ -423,11 +423,11 @@ public class JDBCUtils {
   }
 
   /*
-   * checkConnExist
-   *      Check the cennection exist or not.
+   * assertConnExists
+   *      Check the connection exists or not.
    *      throw error message when the connection dosn't exist.
    */
-  public void checkConnExist() throws IllegalArgumentException {
+  public void assertConnExists() throws IllegalArgumentException {
     if (conn == null) {
       throw new IllegalArgumentException(
           "Must create connection before creating a prepared statment");
@@ -435,11 +435,11 @@ public class JDBCUtils {
   }
 
   /*
-   * checkPstmt
+   * assertStatementNotNull
    *      Check the Prepared Statement exists or not.
    *      throw error message when the Prepared Statement doesn't exist.
    */
-  public void checkPstmt(PreparedStatement pstmt) throws IllegalArgumentException {
+  public void assertStatementNotNull(PreparedStatement pstmt) throws IllegalArgumentException {
     if (pstmt == null) {
       throw new IllegalArgumentException(
           "Must create a prior prepared statement before execute it");
@@ -451,9 +451,9 @@ public class JDBCUtils {
    *      Bind the value to the PreparedStatement object based on the query
    */
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setNull(attnum, Types.NULL);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -464,9 +464,9 @@ public class JDBCUtils {
    */
   public void bindIntPreparedStatement(int values, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setInt(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -477,9 +477,9 @@ public class JDBCUtils {
    */
   public void bindLongPreparedStatement(long values, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setLong(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -491,9 +491,9 @@ public class JDBCUtils {
   public void bindFloatPreparedStatement(float values, int attnum, int resultSetID)
       throws SQLException {
 
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setFloat(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -504,9 +504,9 @@ public class JDBCUtils {
    */
   public void bindDoublePreparedStatement(double values, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setDouble(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -517,9 +517,9 @@ public class JDBCUtils {
    */
   public void bindBooleanPreparedStatement(boolean values, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setBoolean(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -530,9 +530,9 @@ public class JDBCUtils {
    */
   public void bindStringPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     tmpPstmt.setString(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -543,9 +543,9 @@ public class JDBCUtils {
    */
   public void bindByteaPreparedStatement(byte[] dat, long length, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     InputStream targetStream = new ByteArrayInputStream(dat);
     tmpPstmt.setBinaryStream(attnum, targetStream, length);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
@@ -558,9 +558,9 @@ public class JDBCUtils {
   public void bindTimePreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
 
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
     tmpPstmt.setObject(attnum, localTime);
@@ -574,9 +574,9 @@ public class JDBCUtils {
    */
   public void bindTimeTZPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
 
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
@@ -607,9 +607,9 @@ public class JDBCUtils {
    */
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
-    checkConnExist();
+    assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    checkPstmt(tmpPstmt);
+    assertStatementNotNull(tmpPstmt);
     Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
     Timestamp timestamp = Timestamp.from(instant);
     setTimestamp(tmpPstmt, attnum, timestamp);
@@ -639,7 +639,7 @@ public class JDBCUtils {
    * Get identifier quote char from remote server
    */
   public String getIdentifierQuoteString() throws SQLException{
-    checkConnExist();
+    assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
     return md.getIdentifierQuoteString();
   }
