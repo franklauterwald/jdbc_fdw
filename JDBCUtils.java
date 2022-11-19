@@ -65,32 +65,28 @@ public class JDBCUtils {
     queryTimeoutValue = Integer.parseInt(qTimeoutValue);
     exceptionStringWriter = new StringWriter();
     exceptionPrintWriter = new PrintWriter(exceptionStringWriter);
-    try {
-      File JarFile = new File(fileName);
-      String jarfile_path = JarFile.toURI().toURL().toString();
-      if (jdbcDriverLoader == null) {
-        /* If jdbcDriverLoader is being created. */
-        jdbcDriverLoader = new JDBCDriverLoader(new URL[] {JarFile.toURI().toURL()});
-      } else if (jdbcDriverLoader.CheckIfClassIsLoaded(driverClassName) == null) {
-        jdbcDriverLoader.addPath(jarfile_path);
-      }
-      jdbcDriverClass = jdbcDriverLoader.loadClass(driverClassName);
-      jdbcDriver = (Driver) jdbcDriverClass.newInstance();
-      jdbcProperties = new Properties();
-      jdbcProperties.put("user", userName);
-      jdbcProperties.put("password", password);
-      /* get connection from cache */
-      if (ConnectionHash.containsKey(key)) {
-        conn = ConnectionHash.get(key);
-      }
-      if (conn == null) {
-        conn = jdbcDriver.connect(url, jdbcProperties);
-        ConnectionHash.put(key, conn);
-      }
-      dbMetadata = conn.getMetaData();
-    } catch (Throwable e) {
-      throw e;
+    File JarFile = new File(fileName);
+    String jarfile_path = JarFile.toURI().toURL().toString();
+    if (jdbcDriverLoader == null) {
+      /* If jdbcDriverLoader is being created. */
+      jdbcDriverLoader = new JDBCDriverLoader(new URL[] {JarFile.toURI().toURL()});
+    } else if (jdbcDriverLoader.CheckIfClassIsLoaded(driverClassName) == null) {
+      jdbcDriverLoader.addPath(jarfile_path);
     }
+    jdbcDriverClass = jdbcDriverLoader.loadClass(driverClassName);
+    jdbcDriver = (Driver) jdbcDriverClass.newInstance();
+    jdbcProperties = new Properties();
+    jdbcProperties.put("user", userName);
+    jdbcProperties.put("password", password);
+    /* get connection from cache */
+    if (ConnectionHash.containsKey(key)) {
+      conn = ConnectionHash.get(key);
+    }
+    if (conn == null) {
+      conn = jdbcDriver.connect(url, jdbcProperties);
+      ConnectionHash.put(key, conn);
+    }
+    dbMetadata = conn.getMetaData();
   }
 
   /*
@@ -103,16 +99,12 @@ public class JDBCUtils {
      *  because jvm can only return String[] - resultRow.
      *  Todo: return only necessary column.
      */
-    try {
-      checkConnExist();
-      tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-      if (queryTimeoutValue != 0) {
-        tmpStmt.setQueryTimeout(queryTimeoutValue);
-      }
-      tmpStmt.executeQuery(query);
-    } catch (Throwable e) {
-      throw e;
+    checkConnExist();
+    tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    if (queryTimeoutValue != 0) {
+      tmpStmt.setQueryTimeout(queryTimeoutValue);
     }
+    tmpStmt.executeQuery(query);
   }
 
   /*
@@ -128,24 +120,20 @@ public class JDBCUtils {
     int tmpNumberOfAffectedRows = 0;
     ResultSetMetaData rSetMetadata;
     int tmpResultSetKey;
-    try {
-      checkConnExist();
-      tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-      if (queryTimeoutValue != 0) {
-        tmpStmt.setQueryTimeout(queryTimeoutValue);
-      }
-      tmpResultSet = tmpStmt.executeQuery(query);
-      rSetMetadata = tmpResultSet.getMetaData();
-      tmpNumberOfColumns = rSetMetadata.getColumnCount();
-      tmpResultSetKey = initResultSetKey();
-      resultSetInfoMap.put(
-          tmpResultSetKey,
-          new ResultSetInfo(
-              tmpResultSet, tmpNumberOfColumns, tmpNumberOfAffectedRows, null));
-      return tmpResultSetKey;
-    } catch (Throwable e) {
-      throw e;
+    checkConnExist();
+    tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    if (queryTimeoutValue != 0) {
+      tmpStmt.setQueryTimeout(queryTimeoutValue);
     }
+    tmpResultSet = tmpStmt.executeQuery(query);
+    rSetMetadata = tmpResultSet.getMetaData();
+    tmpNumberOfColumns = rSetMetadata.getColumnCount();
+    tmpResultSetKey = initResultSetKey();
+    resultSetInfoMap.put(
+        tmpResultSetKey,
+        new ResultSetInfo(
+            tmpResultSet, tmpNumberOfColumns, tmpNumberOfAffectedRows, null));
+    return tmpResultSetKey;
   }
 
   /*
@@ -153,12 +141,8 @@ public class JDBCUtils {
    *      clear ResultSetID
    */
   public void clearResultSetID(int resultSetID) throws SQLException {
-    try {
-      checkConnExist();
-      resultSetInfoMap.remove(resultSetID);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    resultSetInfoMap.remove(resultSetID);
   }
 
   /*
@@ -169,18 +153,14 @@ public class JDBCUtils {
    *          resultID on success
    */
   public int createPreparedStatement(String query) throws Exception {
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = (PreparedStatement) conn.prepareStatement(query);
-      if (queryTimeoutValue != 0) {
-        tmpPstmt.setQueryTimeout(queryTimeoutValue);
-      }
-      int tmpResultSetKey = initResultSetKey();
-      resultSetInfoMap.put(tmpResultSetKey, new ResultSetInfo(null, null, 0, tmpPstmt));
-      return tmpResultSetKey;
-    } catch (Throwable e) {
-      throw e;
+    checkConnExist();
+    PreparedStatement tmpPstmt = (PreparedStatement) conn.prepareStatement(query);
+    if (queryTimeoutValue != 0) {
+      tmpPstmt.setQueryTimeout(queryTimeoutValue);
     }
+    int tmpResultSetKey = initResultSetKey();
+    resultSetInfoMap.put(tmpResultSetKey, new ResultSetInfo(null, null, 0, tmpPstmt));
+    return tmpResultSetKey;
   }
 
   /*
@@ -188,18 +168,14 @@ public class JDBCUtils {
    *      Create a PreparedStatement object based on the query
    */
   public void execPreparedStatement(int resultSetID) throws SQLException {
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      int tmpNumberOfAffectedRows = tmpPstmt.executeUpdate();
-      tmpPstmt.clearParameters();
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    int tmpNumberOfAffectedRows = tmpPstmt.executeUpdate();
+    tmpPstmt.clearParameters();
 
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-      resultSetInfoMap.get(resultSetID).setNumberOfAffectedRows(tmpNumberOfAffectedRows);
-    } catch (Throwable e) {
-      throw e;
-    }
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
+    resultSetInfoMap.get(resultSetID).setNumberOfAffectedRows(tmpNumberOfAffectedRows);
   }
 
   /*
@@ -209,25 +185,15 @@ public class JDBCUtils {
    *          NumberOfColumns on success
    */
   public int getNumberOfColumns(int resultSetID) throws SQLException {
-    try {
-      return resultSetInfoMap.get(resultSetID).getNumberOfColumns();
-    } catch (Throwable e) {
-      throw e;
-    }
+    return resultSetInfoMap.get(resultSetID).getNumberOfColumns();
   }
 
   /*
    * getNumberOfAffectedRows
    *      Returns numberOfAffectedRows
-   *      Returns:
-   *          NumberOfAffectedRows on success
    */
   public int getNumberOfAffectedRows(int resultSetID) throws SQLException {
-    try {
-      return resultSetInfoMap.get(resultSetID).getNumberOfAffectedRows();
-    } catch (Throwable e) {
-      throw e;
-    }
+    return resultSetInfoMap.get(resultSetID).getNumberOfAffectedRows();
   }
 
   /*
@@ -304,23 +270,19 @@ public class JDBCUtils {
    *      Returns the column name
    */
   public String[] getTableNames() throws SQLException {
-    try {
-      checkConnExist();
-      DatabaseMetaData md = conn.getMetaData();
-      ResultSet tmpResultSet = md.getTables(null, null, "%", null);
+    checkConnExist();
+    DatabaseMetaData md = conn.getMetaData();
+    ResultSet tmpResultSet = md.getTables(null, null, "%", null);
 
-      List<String> tmpTableNamesList = new ArrayList<String>();
-      while (tmpResultSet.next()) {
-        tmpTableNamesList.add(tmpResultSet.getString(3));
-      }
-      String[] tmpTableNames = new String[tmpTableNamesList.size()];
-      for (int i = 0; i < tmpTableNamesList.size(); i++) {
-        tmpTableNames[i] = tmpTableNamesList.get(i);
-      }
-      return tmpTableNames;
-    } catch (Throwable e) {
-      throw e;
+    List<String> tmpTableNamesList = new ArrayList<String>();
+    while (tmpResultSet.next()) {
+      tmpTableNamesList.add(tmpResultSet.getString(3));
     }
+    String[] tmpTableNames = new String[tmpTableNamesList.size()];
+    for (int i = 0; i < tmpTableNamesList.size(); i++) {
+      tmpTableNames[i] = tmpTableNamesList.get(i);
+    }
+    return tmpTableNames;
   }
 
   /*
@@ -329,23 +291,19 @@ public class JDBCUtils {
    */
   public String[] getColumnNames(String tableName) throws SQLException {
     int rowCount;
-    try {
-      checkConnExist();
-      DatabaseMetaData md = conn.getMetaData();
-      ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
-      ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
-      List<String> tmpColumnNamesList = new ArrayList<String>();
-      while (tmpResultSet.next()) {
-        tmpColumnNamesList.add(tmpResultSet.getString("COLUMN_NAME"));
-      }
-      String[] tmpColumnNames = new String[tmpColumnNamesList.size()];
-      for (int i = 0; i < tmpColumnNamesList.size(); i++) {
-        tmpColumnNames[i] = tmpColumnNamesList.get(i);
-      }
-      return tmpColumnNames;
-    } catch (Throwable e) {
-      throw e;
+    checkConnExist();
+    DatabaseMetaData md = conn.getMetaData();
+    ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
+    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
+    List<String> tmpColumnNamesList = new ArrayList<String>();
+    while (tmpResultSet.next()) {
+      tmpColumnNamesList.add(tmpResultSet.getString("COLUMN_NAME"));
     }
+    String[] tmpColumnNames = new String[tmpColumnNamesList.size()];
+    for (int i = 0; i < tmpColumnNamesList.size(); i++) {
+      tmpColumnNames[i] = tmpColumnNamesList.get(i);
+    }
+    return tmpColumnNames;
   }
 
   /*
@@ -354,73 +312,69 @@ public class JDBCUtils {
    */
   public String[] getColumnTypes(String tableName) throws SQLException {
     int rowCount;
-    try {
-      checkConnExist();
-      DatabaseMetaData md = conn.getMetaData();
-      ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
-      ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
-      List<String> tmpColumnTypesList = new ArrayList<String>();
-      while (tmpResultSet.next()) {
-        tmpColumnTypesList.add(tmpResultSet.getString("TYPE_NAME"));
-      }
-      String[] tmpColumnTypes = new String[tmpColumnTypesList.size()];
-      for (int i = 0; i < tmpColumnTypesList.size(); i++) {
-        switch (tmpColumnTypesList.get(i)) {
-          case "BYTE":
-          case "SHORT":
-            tmpColumnTypes[i] = "SMALLINT";
-            break;
-          case "LONG":
-            tmpColumnTypes[i] = "BIGINT";
-            break;
-          case "CHAR":
-            tmpColumnTypes[i] = "CHAR (1)";
-            break;
-          case "STRING":
-            tmpColumnTypes[i] = "TEXT";
-            break;
-          case "FLOAT":
-            tmpColumnTypes[i] = "FLOAT4";
-            break;
-          case "DOUBLE":
-            tmpColumnTypes[i] = "FLOAT8";
-            break;
-          case "BLOB":
-            tmpColumnTypes[i] = "BYTEA";
-            break;
-          case "BOOL_ARRAY":
-            tmpColumnTypes[i] = "BOOL[]";
-            break;
-          case "STRING_ARRAY":
-            tmpColumnTypes[i] = "TEXT[]";
-            break;
-          case "BYTE_ARRAY":
-          case "SHORT_ARRAY":
-            tmpColumnTypes[i] = "SMALLINT[]";
-            break;
-          case "INTEGER_ARRAY":
-            tmpColumnTypes[i] = "INTEGER[]";
-            break;
-          case "LONG_ARRAY":
-            tmpColumnTypes[i] = "BIGINT[]";
-            break;
-          case "FLOAT_ARRAY":
-            tmpColumnTypes[i] = "FLOAT4[]";
-            break;
-          case "DOUBLE_ARRAY":
-            tmpColumnTypes[i] = "FLOAT8[]";
-            break;
-          case "TIMESTAMP_ARRAY":
-            tmpColumnTypes[i] = "TIMESTAMP[]";
-            break;
-          default:
-            tmpColumnTypes[i] = tmpColumnTypesList.get(i);
-        }
-      }
-      return tmpColumnTypes;
-    } catch (Throwable e) {
-      throw e;
+    checkConnExist();
+    DatabaseMetaData md = conn.getMetaData();
+    ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
+    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
+    List<String> tmpColumnTypesList = new ArrayList<String>();
+    while (tmpResultSet.next()) {
+      tmpColumnTypesList.add(tmpResultSet.getString("TYPE_NAME"));
     }
+    String[] tmpColumnTypes = new String[tmpColumnTypesList.size()];
+    for (int i = 0; i < tmpColumnTypesList.size(); i++) {
+      switch (tmpColumnTypesList.get(i)) {
+        case "BYTE":
+        case "SHORT":
+          tmpColumnTypes[i] = "SMALLINT";
+          break;
+        case "LONG":
+          tmpColumnTypes[i] = "BIGINT";
+          break;
+        case "CHAR":
+          tmpColumnTypes[i] = "CHAR (1)";
+          break;
+        case "STRING":
+          tmpColumnTypes[i] = "TEXT";
+          break;
+        case "FLOAT":
+          tmpColumnTypes[i] = "FLOAT4";
+          break;
+        case "DOUBLE":
+          tmpColumnTypes[i] = "FLOAT8";
+          break;
+        case "BLOB":
+          tmpColumnTypes[i] = "BYTEA";
+          break;
+        case "BOOL_ARRAY":
+          tmpColumnTypes[i] = "BOOL[]";
+          break;
+        case "STRING_ARRAY":
+          tmpColumnTypes[i] = "TEXT[]";
+          break;
+        case "BYTE_ARRAY":
+        case "SHORT_ARRAY":
+          tmpColumnTypes[i] = "SMALLINT[]";
+          break;
+        case "INTEGER_ARRAY":
+          tmpColumnTypes[i] = "INTEGER[]";
+          break;
+        case "LONG_ARRAY":
+          tmpColumnTypes[i] = "BIGINT[]";
+          break;
+        case "FLOAT_ARRAY":
+          tmpColumnTypes[i] = "FLOAT4[]";
+          break;
+        case "DOUBLE_ARRAY":
+          tmpColumnTypes[i] = "FLOAT8[]";
+          break;
+        case "TIMESTAMP_ARRAY":
+          tmpColumnTypes[i] = "TIMESTAMP[]";
+          break;
+        default:
+          tmpColumnTypes[i] = tmpColumnTypesList.get(i);
+      }
+    }
+    return tmpColumnTypes;
   }
 
   /*
@@ -428,23 +382,19 @@ public class JDBCUtils {
    *      Returns the column name
    */
   public String[] getPrimaryKey(String tableName) throws SQLException {
-    try {
-      checkConnExist();
-      DatabaseMetaData md = conn.getMetaData();
-      ResultSet tmpResultSet = md.getPrimaryKeys(null, null, tableName);
-      ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
-      List<String> tmpPrimaryKeyList = new ArrayList<String>();
-      while (tmpResultSet.next()) {
-        tmpPrimaryKeyList.add(tmpResultSet.getString("COLUMN_NAME"));
-      }
-      String[] tmpPrimaryKey = new String[tmpPrimaryKeyList.size()];
-      for (int i = 0; i < tmpPrimaryKeyList.size(); i++) {
-        tmpPrimaryKey[i] = tmpPrimaryKeyList.get(i);
-      }
-      return tmpPrimaryKey;
-    } catch (Throwable e) {
-      throw e;
+    checkConnExist();
+    DatabaseMetaData md = conn.getMetaData();
+    ResultSet tmpResultSet = md.getPrimaryKeys(null, null, tableName);
+    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
+    List<String> tmpPrimaryKeyList = new ArrayList<String>();
+    while (tmpResultSet.next()) {
+      tmpPrimaryKeyList.add(tmpResultSet.getString("COLUMN_NAME"));
     }
+    String[] tmpPrimaryKey = new String[tmpPrimaryKeyList.size()];
+    for (int i = 0; i < tmpPrimaryKeyList.size(); i++) {
+      tmpPrimaryKey[i] = tmpPrimaryKeyList.get(i);
+    }
+    return tmpPrimaryKey;
   }
 
   /*
@@ -453,19 +403,15 @@ public class JDBCUtils {
    *      open for another statement to be executed.
    */
   public void closeStatement() throws SQLException {
-    try {
-      resultSetInfoMap.clear();
+    resultSetInfoMap.clear();
 
-      if (tmpStmt != null) {
-        tmpStmt.close();
-        tmpStmt = null;
-      }
-      if (tmpPstmt != null) {
-        tmpPstmt.close();
-        tmpPstmt = null;
-      }
-    } catch (Throwable e) {
-      throw e;
+    if (tmpStmt != null) {
+      tmpStmt.close();
+      tmpStmt = null;
+    }
+    if (tmpPstmt != null) {
+      tmpPstmt.close();
+      tmpPstmt = null;
     }
   }
 
@@ -474,14 +420,10 @@ public class JDBCUtils {
    *     Releases the resources used by connection.
    */
   public void closeConnection() throws SQLException {
-    try {
-      closeStatement();
-      if (conn != null) {
-        conn.close();
-        conn = null;
-      }
-    } catch (Throwable e) {
-      throw e;
+    closeStatement();
+    if (conn != null) {
+      conn.close();
+      conn = null;
     }
   }
 
@@ -491,11 +433,7 @@ public class JDBCUtils {
    *      cancellation is requested by the user.
    */
   public void cancel() throws SQLException {
-    try {
-      closeStatement();
-    } catch (Throwable e) {
-      throw e;
-    }
+    closeStatement();
   }
 
   /*
@@ -527,16 +465,11 @@ public class JDBCUtils {
    *      Bind the value to the PreparedStatement object based on the query
    */
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setNull(attnum, Types.NULL);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setNull(attnum, Types.NULL);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -545,16 +478,11 @@ public class JDBCUtils {
    */
   public void bindIntPreparedStatement(int values, int attnum, int resultSetID)
       throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setInt(attnum, values);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setInt(attnum, values);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -563,16 +491,11 @@ public class JDBCUtils {
    */
   public void bindLongPreparedStatement(long values, int attnum, int resultSetID)
       throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setLong(attnum, values);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setLong(attnum, values);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -582,15 +505,11 @@ public class JDBCUtils {
   public void bindFloatPreparedStatement(float values, int attnum, int resultSetID)
       throws SQLException {
 
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setFloat(attnum, values);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setFloat(attnum, values);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -599,16 +518,11 @@ public class JDBCUtils {
    */
   public void bindDoublePreparedStatement(double values, int attnum, int resultSetID)
       throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setDouble(attnum, values);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setDouble(attnum, values);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -617,16 +531,11 @@ public class JDBCUtils {
    */
   public void bindBooleanPreparedStatement(boolean values, int attnum, int resultSetID)
       throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setBoolean(attnum, values);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setBoolean(attnum, values);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -635,16 +544,11 @@ public class JDBCUtils {
    */
   public void bindStringPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      tmpPstmt.setString(attnum, values);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    tmpPstmt.setString(attnum, values);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -653,17 +557,12 @@ public class JDBCUtils {
    */
   public void bindByteaPreparedStatement(byte[] dat, long length, int attnum, int resultSetID)
       throws SQLException {
-
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      InputStream targetStream = new ByteArrayInputStream(dat);
-      tmpPstmt.setBinaryStream(attnum, targetStream, length);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    InputStream targetStream = new ByteArrayInputStream(dat);
+    tmpPstmt.setBinaryStream(attnum, targetStream, length);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -673,17 +572,13 @@ public class JDBCUtils {
   public void bindTimePreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
 
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
-      LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
-      tmpPstmt.setObject(attnum, localTime);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
+    LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
+    tmpPstmt.setObject(attnum, localTime);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -693,19 +588,14 @@ public class JDBCUtils {
    */
   public void bindTimeTZPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
 
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-
-      String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
-      LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
-      tmpPstmt.setObject(attnum, localTime);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
+    LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
+    tmpPstmt.setObject(attnum, localTime);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
@@ -722,8 +612,6 @@ public class JDBCUtils {
       } catch (SQLFeatureNotSupportedException e) {
         /* GridDB only, no calendar support in setTimestamp() */
         preparedStatement.setTimestamp(attnum, timestamp);
-      } catch (Throwable e) {
-        throw e;
       }
     }
 
@@ -733,52 +621,40 @@ public class JDBCUtils {
    */
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
-    try {
-      checkConnExist();
-      PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-      checkPstmt(tmpPstmt);
-      Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
-      Timestamp timestamp = Timestamp.from(instant);
-      setTimestamp(tmpPstmt, attnum, timestamp);
-      resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    checkPstmt(tmpPstmt);
+    Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
+    Timestamp timestamp = Timestamp.from(instant);
+    setTimestamp(tmpPstmt, attnum, timestamp);
+    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
 
   /*
    * Avoid race case.
    */
   synchronized public int initResultSetKey() throws Exception{
-    try{
-      int datum = this.resultSetKey;
-      while (resultSetInfoMap.containsKey(this.resultSetKey)) {
-        /* avoid giving minus key */
-        if (this.resultSetKey == Integer.MAX_VALUE) {
-          this.resultSetKey = 1;
-        }
-        this.resultSetKey++;
-        /* resultSetKey full */
-        if (this.resultSetKey == datum) {
-          throw new SQLException("resultSetKey is full");
-        }
+    int datum = this.resultSetKey;
+    while (resultSetInfoMap.containsKey(this.resultSetKey)) {
+      /* avoid giving minus key */
+      if (this.resultSetKey == Integer.MAX_VALUE) {
+        this.resultSetKey = 1;
       }
-      return this.resultSetKey;
-    } catch (Throwable e) {
-      throw e;
+      this.resultSetKey++;
+      /* resultSetKey full */
+      if (this.resultSetKey == datum) {
+        throw new SQLException("resultSetKey is full");
+      }
     }
+    return this.resultSetKey;
   }
 
   /*
    * Get identifier quote char from remote server
    */
   public String getIdentifierQuoteString() throws SQLException{
-    try{
-      checkConnExist();
-      DatabaseMetaData md = conn.getMetaData();
-      return md.getIdentifierQuoteString();
-    } catch (Throwable e) {
-      throw e;
-    }
+    checkConnExist();
+    DatabaseMetaData md = conn.getMetaData();
+    return md.getIdentifierQuoteString();
   }
 }
