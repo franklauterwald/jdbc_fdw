@@ -109,6 +109,7 @@ public class JDBCUtils {
    *      with a specific resultID and return back to the calling C function
    *      Returns:
    *          resultID on success
+   * Called from C
    */
   public int createStatementID(String query) throws Exception {
     assertConnExists();
@@ -176,6 +177,7 @@ public class JDBCUtils {
    *      Returns arrayOfNumberOfColumns[resultSetID]
    *      Returns:
    *          NumberOfColumns on success
+   * Called from C
    */
   public int getNumberOfColumns(int resultSetID) throws SQLException {
     return resultSetInfoMap.get(resultSetID).getNumberOfColumns();
@@ -185,7 +187,7 @@ public class JDBCUtils {
    * getNumberOfAffectedRows
    *      Returns numberOfAffectedRows
    */
-  public int getNumberOfAffectedRows(int resultSetID) throws SQLException {
+  protected int getNumberOfAffectedRows(int resultSetID) throws SQLException {
     return resultSetInfoMap.get(resultSetID).getNumberOfAffectedRows();
   }
 
@@ -397,7 +399,7 @@ public class JDBCUtils {
    *      Releases the resources used by statement. Keeps the connection
    *      open for another statement to be executed.
    */
-  public void closeStatement() throws SQLException {
+  protected void closeStatement() throws SQLException {
     resultSetInfoMap.clear();
 
     if (tmpStmt != null) {
@@ -407,18 +409,6 @@ public class JDBCUtils {
     if (tmpPstmt != null) {
       tmpPstmt.close();
       tmpPstmt = null;
-    }
-  }
-
-  /*
-   * closeConnection
-   *     Releases the resources used by connection.
-   */
-  public void closeConnection() throws SQLException {
-    closeStatement();
-    if (conn != null) {
-      conn.close();
-      conn = null;
     }
   }
 
@@ -437,7 +427,7 @@ public class JDBCUtils {
    *      Check the connection exists or not.
    *      throw error message when the connection dosn't exist.
    */
-  public void assertConnExists() throws IllegalArgumentException {
+  protected void assertConnExists() throws IllegalArgumentException {
     if (conn == null) {
       throw new IllegalArgumentException(
           "Must create connection before creating a prepared statment");
@@ -449,7 +439,7 @@ public class JDBCUtils {
    *      Check the Prepared Statement exists or not.
    *      throw error message when the Prepared Statement doesn't exist.
    */
-  public void assertStatementNotNull(PreparedStatement pstmt) throws IllegalArgumentException {
+  protected void assertStatementNotNull(PreparedStatement pstmt) throws IllegalArgumentException {
     if (pstmt == null) {
       throw new IllegalArgumentException(
           "Must create a prior prepared statement before execute it");
@@ -590,6 +580,7 @@ public class JDBCUtils {
    * bindTimeTZPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
    *      set with localtime: might lost time-zone
+   * Called from C
    */
   public void bindTimeTZPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
@@ -640,7 +631,7 @@ public class JDBCUtils {
   /*
    * Avoid race case.
    */
-  synchronized public int initResultSetKey() throws Exception{
+  synchronized protected int initResultSetKey() throws Exception{
     int datum = this.resultSetKey;
     while (resultSetInfoMap.containsKey(this.resultSetKey)) {
       /* avoid giving minus key */
@@ -660,7 +651,7 @@ public class JDBCUtils {
    * Get identifier quote char from remote server
    * Called from C
    */
-  public String getIdentifierQuoteString() throws SQLException{
+  public String getIdentifierQuoteString() throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
     return md.getIdentifierQuoteString();
