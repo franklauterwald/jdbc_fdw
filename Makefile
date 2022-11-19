@@ -24,6 +24,7 @@ TRGTS = JAVAFILES
 JAVA_SOURCES = \
 	JDBCUtils.java \
 	JDBCDriverLoader.java \
+	CInterface.java
  
 PG_CPPFLAGS=-D'PKG_LIB_DIR=$(pkglibdir)' -I$(libpq_srcdir)
 

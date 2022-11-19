@@ -27,7 +27,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class JDBCUtils {
+public class JDBCUtils implements CInterface {
   private Connection conn = null;
   private static JDBCDriverLoader jdbcDriverLoader;
   private StringWriter exceptionStringWriter;
@@ -48,8 +48,8 @@ public class JDBCUtils {
    *      Caller will pass in a six element array with the following elements:
    *          0 - Driver class name, 1 - JDBC URL, 2 - Username
    *          3 - Password, 4 - Query timeout in seconds, 5 - jarfile
-   * Called from C
    */
+  @Override
   public void createConnection(int key, String[] options) throws Exception {
     String driverClassName = options[0];
     String url = options[1];
@@ -87,8 +87,8 @@ public class JDBCUtils {
   /*
    * createStatement
    *      Create a statement object based on the query
-   * Called from C
    */
+  @Override
   public void createStatement(String query) throws SQLException {
     /*
      *  Set the query select all columns for creating the same size of the result table
@@ -109,8 +109,8 @@ public class JDBCUtils {
    *      with a specific resultID and return back to the calling C function
    *      Returns:
    *          resultID on success
-   * Called from C
    */
+  @Override
   public int createStatementID(String query) throws Exception {
     assertConnExists();
     tmpStmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -131,8 +131,8 @@ public class JDBCUtils {
   /*
    * clearResultSetID
    *      clear ResultSetID
-   * Called from C
    */
+  @Override
   public void clearResultSetID(int resultSetID) throws SQLException {
     assertConnExists();
     resultSetInfoMap.remove(resultSetID);
@@ -145,6 +145,7 @@ public class JDBCUtils {
    *      Returns:
    *          resultID on success
    */
+  @Override
   public int createPreparedStatement(String query) throws Exception {
     assertConnExists();
     PreparedStatement tmpPstmt = (PreparedStatement) conn.prepareStatement(query);
@@ -159,8 +160,8 @@ public class JDBCUtils {
   /*
    * execPreparedStatement
    *      Execute a PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void execPreparedStatement(int resultSetID) throws SQLException {
     assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
@@ -177,8 +178,8 @@ public class JDBCUtils {
    *      Returns arrayOfNumberOfColumns[resultSetID]
    *      Returns:
    *          NumberOfColumns on success
-   * Called from C
    */
+  @Override
   public int getNumberOfColumns(int resultSetID) throws SQLException {
     return resultSetInfoMap.get(resultSetID).getNumberOfColumns();
   }
@@ -199,8 +200,8 @@ public class JDBCUtils {
    *      BLOB), Object corresponds to byte array. For other types, Object corresponds to
    *      String. After last row null is returned.
    *
-   * Called from C
    */
+  @Override
   public Object[] getResultSet(int resultSetID) throws SQLException {
     try {
       ResultSet tmpResultSet = resultSetInfoMap.get(resultSetID).getResultSet();
@@ -264,8 +265,8 @@ public class JDBCUtils {
   /*
    * getTableNames
    *      Returns the column name
-   * Called from C
    */
+  @Override
   public String[] getTableNames() throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
@@ -305,8 +306,8 @@ public class JDBCUtils {
   /*
    * getColumnTypes
    *      Returns the column types
-   * Called from C
    */
+  @Override
   public String[] getColumnTypes(String tableName) throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
@@ -376,8 +377,8 @@ public class JDBCUtils {
   /*
    * getPrimaryKey
    *      Returns the column name
-   * Called from C
    */
+  @Override
   public String[] getPrimaryKey(String tableName) throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
@@ -416,8 +417,8 @@ public class JDBCUtils {
    * cancel
    *      Cancels the query and releases the resources in case query
    *      cancellation is requested by the user.
-   * Called from C
    */
+  @Override
   public void cancel() throws SQLException {
     closeStatement();
   }
@@ -449,8 +450,8 @@ public class JDBCUtils {
   /*
    * bindNullPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
     assertConnExists();
     PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
@@ -462,8 +463,8 @@ public class JDBCUtils {
   /*
    * bindIntPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindIntPreparedStatement(int values, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -476,8 +477,8 @@ public class JDBCUtils {
   /*
    * bindLongPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindLongPreparedStatement(long values, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -505,8 +506,8 @@ public class JDBCUtils {
   /*
    * bindDoublePreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindDoublePreparedStatement(double values, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -519,8 +520,8 @@ public class JDBCUtils {
   /*
    * bindBooleanPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindBooleanPreparedStatement(boolean values, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -533,8 +534,8 @@ public class JDBCUtils {
   /*
    * bindStringPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindStringPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -547,8 +548,8 @@ public class JDBCUtils {
   /*
    * bindByteaPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindByteaPreparedStatement(byte[] dat, long length, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -562,8 +563,8 @@ public class JDBCUtils {
   /*
    * bindTimePreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindTimePreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
 
@@ -580,8 +581,8 @@ public class JDBCUtils {
    * bindTimeTZPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
    *      set with localtime: might lost time-zone
-   * Called from C
    */
+  @Override
   public void bindTimeTZPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
     assertConnExists();
@@ -597,7 +598,6 @@ public class JDBCUtils {
   /*
    * Set timestamp to prepared statement
    * Use the UTC time zone as default to avoid being affected by the JVM time zone
-   * Called from C
    */
   private void setTimestamp(PreparedStatement preparedStatement, int attnum, Timestamp timestamp)
     throws SQLException {
@@ -615,8 +615,8 @@ public class JDBCUtils {
   /*
    * bindTimestampPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
     assertConnExists();
@@ -649,8 +649,8 @@ public class JDBCUtils {
 
   /*
    * Get identifier quote char from remote server
-   * Called from C
    */
+  @Override
   public String getIdentifierQuoteString() throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
