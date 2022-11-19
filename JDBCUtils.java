@@ -454,120 +454,71 @@ public class JDBCUtils implements CInterface {
     return stmt;
   }
 
-  /*
-   * bindNullPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
-    stmt.setNull(attnum, Types.NULL);
+    getValidatedStatement(resultSetID).setNull(attnum, Types.NULL);
   }
 
-  /*
-   * bindIntPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindIntPreparedStatement(int value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
-    stmt.setInt(attnum, value);
+    getValidatedStatement(resultSetID).setInt(attnum, value);
   }
 
-  /*
-   * bindLongPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindLongPreparedStatement(long value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
-    stmt.setLong(attnum, value);
+    getValidatedStatement(resultSetID).setLong(attnum, value);
   }
 
-  /*
-   * bindFloatPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindFloatPreparedStatement(float value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
-    stmt.setFloat(attnum, value);
+    getValidatedStatement(resultSetID).setFloat(attnum, value);
   }
 
-  /*
-   * bindDoublePreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
-  public void bindDoublePreparedStatement(double values, int attnum, int resultSetID)
+  public void bindDoublePreparedStatement(double value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setDouble(attnum, values);
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
+    getValidatedStatement(resultSetID).setDouble(attnum, value);
   }
 
-  /*
-   * bindBooleanPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
-  public void bindBooleanPreparedStatement(boolean values, int attnum, int resultSetID)
+  public void bindBooleanPreparedStatement(boolean value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setBoolean(attnum, values);
+    getValidatedStatement(resultSetID).setBoolean(attnum, value);
   }
 
-  /*
-   * bindStringPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindStringPreparedStatement(String value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
-    tmpPstmt.setString(attnum, value);
+    getValidatedStatement(resultSetID).setString(attnum, value);;
   }
 
-  /*
-   * bindByteaPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindByteaPreparedStatement(byte[] dat, long length, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     InputStream targetStream = new ByteArrayInputStream(dat);
-    tmpPstmt.setBinaryStream(attnum, targetStream, length);
+    getValidatedStatement(resultSetID).setBinaryStream(attnum, targetStream, length);
   }
 
-  /*
-   * bindTimePreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindTimePreparedStatement(String value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(value, DateTimeFormatter.ofPattern(pattern));
-    stmt.setObject(attnum, localTime);
+    getValidatedStatement(resultSetID).setObject(attnum, localTime);
   }
 
   /*
    * bindTimeTZPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
+   *      TODO: timezone is ignored and local is used
    *      set with localtime: might lost time-zone
    */
   @Override
   public void bindTimeTZPreparedStatement(String value, int attnum, int resultSetID)
       throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
-    String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
-    LocalTime localTime = LocalTime.parse(value, DateTimeFormatter.ofPattern(pattern));
-    stmt.setObject(attnum, localTime);
+    bindTimePreparedStatement(value, attnum, resultSetID);
   }
 
   /*
@@ -587,17 +538,12 @@ public class JDBCUtils implements CInterface {
       }
     }
 
-  /*
-   * bindTimestampPreparedStatement
-   *      Bind the value to the PreparedStatement object based on the query
-   */
   @Override
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetID);
     Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
     Timestamp timestamp = Timestamp.from(instant);
-    setTimestamp(stmt, attnum, timestamp);
+    setTimestamp(getValidatedStatement(resultSetID), attnum, timestamp);
   }
 
   /*
