@@ -48,7 +48,7 @@ public class JDBCUtils {
    *      Caller will pass in a six element array with the following elements:
    *          0 - Driver class name, 1 - JDBC URL, 2 - Username
    *          3 - Password, 4 - Query timeout in seconds, 5 - jarfile
-   *
+   * Called from C
    */
   public void createConnection(int key, String[] options) throws Exception {
     String driverClassName = options[0];
@@ -87,6 +87,7 @@ public class JDBCUtils {
   /*
    * createStatement
    *      Create a statement object based on the query
+   * Called from C
    */
   public void createStatement(String query) throws SQLException {
     /*
@@ -129,6 +130,7 @@ public class JDBCUtils {
   /*
    * clearResultSetID
    *      clear ResultSetID
+   * Called from C
    */
   public void clearResultSetID(int resultSetID) throws SQLException {
     assertConnExists();
@@ -155,7 +157,8 @@ public class JDBCUtils {
 
   /*
    * execPreparedStatement
-   *      Create a PreparedStatement object based on the query
+   *      Execute a PreparedStatement object based on the query
+   * Called from C
    */
   public void execPreparedStatement(int resultSetID) throws SQLException {
     assertConnExists();
@@ -193,6 +196,8 @@ public class JDBCUtils {
    *      as an Object array. For binary related types (BINARY, LONGVARBINARY, VARBINARY,
    *      BLOB), Object corresponds to byte array. For other types, Object corresponds to
    *      String. After last row null is returned.
+   *
+   * Called from C
    */
   public Object[] getResultSet(int resultSetID) throws SQLException {
     try {
@@ -257,6 +262,7 @@ public class JDBCUtils {
   /*
    * getTableNames
    *      Returns the column name
+   * Called from C
    */
   public String[] getTableNames() throws SQLException {
     assertConnExists();
@@ -277,6 +283,7 @@ public class JDBCUtils {
   /*
    * getColumnNames
    *      Returns the column names
+   * Called from C
    */
   public String[] getColumnNames(String tableName) throws SQLException {
     assertConnExists();
@@ -295,7 +302,8 @@ public class JDBCUtils {
 
   /*
    * getColumnTypes
-   *      Returns the column name
+   *      Returns the column types
+   * Called from C
    */
   public String[] getColumnTypes(String tableName) throws SQLException {
     assertConnExists();
@@ -366,6 +374,7 @@ public class JDBCUtils {
   /*
    * getPrimaryKey
    *      Returns the column name
+   * Called from C
    */
   public String[] getPrimaryKey(String tableName) throws SQLException {
     assertConnExists();
@@ -417,6 +426,7 @@ public class JDBCUtils {
    * cancel
    *      Cancels the query and releases the resources in case query
    *      cancellation is requested by the user.
+   * Called from C
    */
   public void cancel() throws SQLException {
     closeStatement();
@@ -449,6 +459,7 @@ public class JDBCUtils {
   /*
    * bindNullPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
     assertConnExists();
@@ -461,6 +472,7 @@ public class JDBCUtils {
   /*
    * bindIntPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindIntPreparedStatement(int values, int attnum, int resultSetID)
       throws SQLException {
@@ -474,6 +486,7 @@ public class JDBCUtils {
   /*
    * bindLongPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindLongPreparedStatement(long values, int attnum, int resultSetID)
       throws SQLException {
@@ -487,6 +500,7 @@ public class JDBCUtils {
   /*
    * bindFloatPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindFloatPreparedStatement(float values, int attnum, int resultSetID)
       throws SQLException {
@@ -501,6 +515,7 @@ public class JDBCUtils {
   /*
    * bindDoublePreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindDoublePreparedStatement(double values, int attnum, int resultSetID)
       throws SQLException {
@@ -514,6 +529,7 @@ public class JDBCUtils {
   /*
    * bindBooleanPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindBooleanPreparedStatement(boolean values, int attnum, int resultSetID)
       throws SQLException {
@@ -527,6 +543,7 @@ public class JDBCUtils {
   /*
    * bindStringPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindStringPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
@@ -540,6 +557,7 @@ public class JDBCUtils {
   /*
    * bindByteaPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindByteaPreparedStatement(byte[] dat, long length, int attnum, int resultSetID)
       throws SQLException {
@@ -554,6 +572,7 @@ public class JDBCUtils {
   /*
    * bindTimePreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindTimePreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
@@ -587,6 +606,7 @@ public class JDBCUtils {
   /*
    * Set timestamp to prepared statement
    * Use the UTC time zone as default to avoid being affected by the JVM time zone
+   * Called from C
    */
   private void setTimestamp(PreparedStatement preparedStatement, int attnum, Timestamp timestamp)
     throws SQLException {
@@ -604,6 +624,7 @@ public class JDBCUtils {
   /*
    * bindTimestampPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
+   * Called from C
    */
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
@@ -637,6 +658,7 @@ public class JDBCUtils {
 
   /*
    * Get identifier quote char from remote server
+   * Called from C
    */
   public String getIdentifierQuoteString() throws SQLException{
     assertConnExists();
