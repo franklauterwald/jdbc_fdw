@@ -304,10 +304,8 @@ static List *jdbcImportForeignSchema(ImportForeignSchemaStmt *stmt,
 static void jdbcGetForeignUpperPaths(PlannerInfo *root,
 									 UpperRelationKind stage,
 									 RelOptInfo *input_rel,
-									 RelOptInfo *output_rel
-#if (PG_VERSION_NUM >= 110000)
-									 ,void *extra
-#endif
+									 RelOptInfo *output_rel,
+									 void *extra
 );
 
 /*
@@ -331,16 +329,12 @@ static void jdbc_prepare_foreign_modify(jdbcFdwModifyState * fmstate);
 static bool jdbc_foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel);
 static void jdbc_add_foreign_grouping_paths(PlannerInfo *root,
 											RelOptInfo *input_rel,
-											RelOptInfo *grouped_rel
-#if (PG_VERSION_NUM >= 110000)
-											,GroupPathExtraData *extra
-#endif
+											RelOptInfo *grouped_rel,
+											GroupPathExtraData *extra
 );
 static void jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
-										 RelOptInfo *final_rel
-#if (PG_VERSION_NUM >= 120000)
-										 ,FinalPathExtraData *extra
-#endif
+										 RelOptInfo *final_rel,
+										 FinalPathExtraData *extra
 );
 
 static void jdbc_execute_commands(List *cmd_list);
@@ -490,12 +484,7 @@ jdbcGetForeignRelSize(PlannerInfo *root,
 	 * columns used in them.  Doesn't seem worth detecting that case though.)
 	 */
 	fpinfo->attrs_used = NULL;
-#if PG_VERSION_NUM >= 90600
 	pull_varattnos((Node *) baserel->reltarget->exprs, baserel->relid, &fpinfo->attrs_used);
-#else
-	pull_varattnos((Node *) baserel->reltargetlist, baserel->relid,
-				   &fpinfo->attrs_used);
-#endif
 	foreach(lc, fpinfo->local_conds)
 	{
 		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
@@ -1017,25 +1006,12 @@ jdbcBeginForeignScan(ForeignScanState *node, int eflags)
 	/*
 	 * Create contexts for batches of tuples and per-tuple temp workspace.
 	 */
-#if PG_VERSION_NUM >= 110000
 	fsstate->batch_cxt = AllocSetContextCreate(estate->es_query_cxt,
 											   "jdbc_fdw tuple data",
 											   ALLOCSET_DEFAULT_SIZES);
 	fsstate->temp_cxt = AllocSetContextCreate(estate->es_query_cxt,
 											  "jdbc_fdw temporary data",
 											  ALLOCSET_DEFAULT_SIZES);
-#else
-	fsstate->batch_cxt = AllocSetContextCreate(estate->es_query_cxt,
-											   "jdbc_fdw tuple data",
-											   ALLOCSET_DEFAULT_MINSIZE,
-											   ALLOCSET_DEFAULT_INITSIZE,
-											   ALLOCSET_DEFAULT_MAXSIZE);
-	fsstate->temp_cxt = AllocSetContextCreate(estate->es_query_cxt,
-											  "jdbc_fdw temporary data",
-											  ALLOCSET_SMALL_MINSIZE,
-											  ALLOCSET_SMALL_INITSIZE,
-											  ALLOCSET_SMALL_MAXSIZE);
-#endif
 
 	/*
 	 * Get info we'll need for converting data fetched from the foreign server
@@ -1080,11 +1056,7 @@ jdbcBeginForeignScan(ForeignScanState *node, int eflags)
 	 * Param evaluation.)
 	 */
 
-#if PG_VERSION_NUM >= 100000
 	fsstate->param_exprs = (List *) ExecInitExprList(fsplan->fdw_exprs, (PlanState *) node);
-#else
-	fsstate->param_exprs = (List *) ExecInitExpr((Expr *) fsplan->fdw_exprs, (PlanState *) node);
-#endif
 
 	/*
 	 * Allocate buffer for text form of query parameters, if any.
@@ -1286,11 +1258,7 @@ jdbcPlanForeignModify(PlannerInfo *root,
 	 * Core code already has some lock on each rel being planned, so we can
 	 * use NoLock here.
 	 */
-#if PG_VERSION_NUM < 130000
-	rel = heap_open(rte->relid, NoLock);
-#else
 	rel = table_open(rte->relid, NoLock);
-#endif
 
 	foreignTableId = RelationGetRelid(rel);
 	tupdesc = RelationGetDescr(rel);
@@ -1324,11 +1292,7 @@ jdbcPlanForeignModify(PlannerInfo *root,
 		Bitmapset  *tmpset;
 		AttrNumber	col;
 
-#if (PG_VERSION_NUM >= 120000)
 		tmpset = bms_union(rte->updatedCols, rte->extraUpdatedCols);
-#else
-		tmpset = bms_copy(rte->updatedCols);
-#endif
 		while ((col = bms_first_member(tmpset)) >= 0)
 		{
 			col += FirstLowInvalidHeapAttributeNumber;
@@ -1394,11 +1358,7 @@ jdbcPlanForeignModify(PlannerInfo *root,
 			break;
 	}
 
-#if PG_VERSION_NUM < 130000
-	heap_close(rel, NoLock);
-#else
 	table_close(rel, NoLock);
-#endif
 
 	/*
 	 * Build the fdw_private list that will be available to the executor.
@@ -1477,17 +1437,9 @@ jdbcBeginForeignModify(ModifyTableState *mtstate,
 	fmstate->target_attrs = (List *) list_nth(fdw_private,
 											  FdwModifyPrivateTargetAttnums);
 	/* Create context for per-tuple temp workspace. */
-#if PG_VERSION_NUM >= 110000
 	fmstate->temp_cxt = AllocSetContextCreate(estate->es_query_cxt,
 											  "jdbc_fdw temporary data",
 											  ALLOCSET_DEFAULT_SIZES);
-#else
-	fmstate->temp_cxt = AllocSetContextCreate(estate->es_query_cxt,
-											  "jdbc_fdw temporary data",
-											  ALLOCSET_SMALL_MINSIZE,
-											  ALLOCSET_SMALL_INITSIZE,
-											  ALLOCSET_SMALL_MAXSIZE);
-#endif
 
 	/* Prepare for output conversion of parameters used in prepared stmt. */
 	n_params = list_length(fmstate->target_attrs) + 1;
@@ -1521,9 +1473,7 @@ jdbcBeginForeignModify(ModifyTableState *mtstate,
 		fmstate->junk_idx[i] =
 			ExecFindJunkAttributeInTlist(subplan->targetlist,
 										 get_attname(foreignTableId, i + 1
-#if (PG_VERSION_NUM >= 110000)
 													 ,false
-#endif
 													 ));
 	}
 
@@ -2057,9 +2007,7 @@ jdbc_foreign_grouping_ok(PlannerInfo *root, RelOptInfo *grouped_rel)
 static void
 jdbc_add_foreign_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 								RelOptInfo *grouped_rel
-#if (PG_VERSION_NUM >= 110000)
 								,GroupPathExtraData *extra
-#endif
 )
 {
 	Query	   *parse = root->parse;
@@ -2082,10 +2030,8 @@ jdbc_add_foreign_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 		!parse->hasAggs)
 		return;
 
-#if (PG_VERSION_NUM >= 110000)
 	Assert(extra->patype == PARTITIONWISE_AGGREGATE_NONE ||
 		   extra->patype == PARTITIONWISE_AGGREGATE_FULL);
-#endif
 
 	/* save the input_rel as outerrel in fpinfo */
 	fpinfo->outerrel = input_rel;
@@ -2131,7 +2077,6 @@ jdbc_add_foreign_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 	fpinfo->total_cost = total_cost;
 
 	/* Create and add foreign path to the grouping relation. */
-#if (PG_VERSION_NUM >= 120000)
 	grouppath = create_foreign_upper_path(root,
 										  grouped_rel,
 										  grouped_rel->reltarget,
@@ -2141,18 +2086,6 @@ jdbc_add_foreign_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
 										  NIL,	/* no pathkeys */
 										  NULL,
 										  NIL); /* no fdw_private */
-#else
-	grouppath = create_foreignscan_path(root,
-										grouped_rel,
-										root->upper_targets[UPPERREL_GROUP_AGG],
-										rows,
-										startup_cost,
-										total_cost,
-										NIL,	/* no pathkeys */
-										NULL,	/* no required_outer */
-										NULL,
-										NIL);	/* no fdw_private */
-#endif
 
 	/* Add generated path into grouped_rel by add_path(). */
 	add_path(grouped_rel, (Path *) grouppath);
@@ -2168,10 +2101,8 @@ jdbc_add_foreign_grouping_paths(PlannerInfo *root, RelOptInfo *input_rel,
  */
 static void
 jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
-							 RelOptInfo *final_rel
-#if (PG_VERSION_NUM >= 120000)
-							 ,FinalPathExtraData *extra
-#endif
+							 RelOptInfo *final_rel,
+							 FinalPathExtraData *extra
 )
 {
 	Query	   *parse = root->parse;
@@ -2203,17 +2134,13 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 	 * to add a LIMIT node
 	 */
 	if (!parse->rowMarks
-#if (PG_VERSION_NUM >= 120000)
 		&& !extra->limit_needed
-#endif
 		)
 		return;
 
-#if (PG_VERSION_NUM >= 100000)
 	/* We don't support cases where there are any SRFs in the targetlist */
 	if (parse->hasTargetSRFs)
 		return;
-#endif
 	/* Save the input_rel as outerrel in fpinfo */
 	fpinfo->outerrel = input_rel;
 
@@ -2224,8 +2151,6 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 	fpinfo->table = ifpinfo->table;
 	fpinfo->server = ifpinfo->server;
 	fpinfo->user = ifpinfo->user;
-
-#if (PG_VERSION_NUM >= 120000)
 
 	/*
 	 * If there is no need to add a LIMIT node, there might be a ForeignPath
@@ -2273,7 +2198,6 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 				 * no-longer-needed outer plan (if any), which makes the
 				 * EXPLAIN output look cleaner
 				 */
-#if (PG_VERSION_NUM >= 120000)
 				final_path = create_foreign_upper_path(root,
 													   path->parent,
 													   path->pathtarget,
@@ -2283,18 +2207,6 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 													   path->pathkeys,
 													   NULL,	/* no extra plan */
 													   NULL);	/* no fdw_private */
-#else
-				final_path = create_foreignscan_path(root,
-													 input_rel,
-													 root->upper_targets[UPPERREL_FINAL],
-													 rows,
-													 startup_cost,
-													 total_cost,
-													 pathkeys,
-													 NULL,	/* no required_outer */
-													 NULL,	/* no extra plan */
-													 fdw_private);
-#endif
 				/* and add it to the final_rel */
 				add_path(final_rel, (Path *) final_path);
 
@@ -2314,7 +2226,6 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 	}
 
 	Assert(extra->limit_needed);
-#endif
 
 	/*
 	 * If the input_rel is an ordered relation, replace the input_rel with its
@@ -2386,17 +2297,12 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 	 * Items in the list must match order in enum FdwPathPrivateIndex.
 	 */
 	fdw_private = list_make2(makeInteger(has_final_sort)
-#if (PG_VERSION_NUM >= 120000)
 							 ,makeInteger(extra->limit_needed));
-#else
-							 ,makeInteger(false));
-#endif
 
 	/*
 	 * Create foreign final path; this gets rid of a no-longer-needed outer
 	 * plan (if any), which makes the EXPLAIN output look cleaner
 	 */
-#if (PG_VERSION_NUM >= 120000)
 	final_path = create_foreign_upper_path(root,
 										   input_rel,
 										   root->upper_targets[UPPERREL_FINAL],
@@ -2406,18 +2312,6 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
 										   pathkeys,
 										   NULL,	/* no extra plan */
 										   fdw_private);
-#else
-	final_path = create_foreignscan_path(root,
-										 input_rel,
-										 root->upper_targets[UPPERREL_FINAL],
-										 rows,
-										 startup_cost,
-										 total_cost,
-										 pathkeys,
-										 NULL,	/* no required_outer */
-										 NULL,	/* no extra plan */
-										 fdw_private);
-#endif
 
 	/* and add it to the final_rel */
 	add_path(final_rel, (Path *) final_path);
@@ -2430,11 +2324,8 @@ jdbc_add_foreign_final_paths(PlannerInfo *root, RelOptInfo *input_rel,
  */
 static void
 jdbcGetForeignUpperPaths(PlannerInfo *root, UpperRelationKind stage,
-						 RelOptInfo *input_rel, RelOptInfo *output_rel
-#if (PG_VERSION_NUM >= 110000)
-						 ,
+						 RelOptInfo *input_rel, RelOptInfo *output_rel,
 						 void *extra
-#endif
 )
 {
 	jdbcFdwRelationInfo *fpinfo;
@@ -2465,16 +2356,12 @@ jdbcGetForeignUpperPaths(PlannerInfo *root, UpperRelationKind stage,
 	{
 		case UPPERREL_GROUP_AGG:
 			jdbc_add_foreign_grouping_paths(root, input_rel, output_rel
-#if (PG_VERSION_NUM >= 110000)
 											,(GroupPathExtraData *) extra
-#endif
 				);
 			break;
 		case UPPERREL_FINAL:
 			jdbc_add_foreign_final_paths(root, input_rel, output_rel
-#if (PG_VERSION_NUM >= 120000)
 										 ,(FinalPathExtraData *) extra
-#endif
 				);
 			break;
 		default:
