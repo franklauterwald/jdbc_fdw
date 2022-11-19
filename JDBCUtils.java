@@ -160,7 +160,7 @@ public class JDBCUtils implements CInterface {
    */
   @Override
   public void execPreparedStatement(int resultSetID) throws SQLException {
-    PreparedStatement stmt = getValidatedStatement(resultSetId);
+    PreparedStatement stmt = getValidatedStatement(resultSetID);
     int numAffectedRows = stmt.executeUpdate();
     stmt.clearParameters();
 
@@ -294,67 +294,13 @@ public class JDBCUtils implements CInterface {
   public String[] getColumnTypes(String tableName) throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
-    ResultSet tmpResultSet = md.getColumns(null, null, tableName, null);
-    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
-    List<String> tmpColumnTypesList = new ArrayList<String>();
-    while (tmpResultSet.next()) {
-      tmpColumnTypesList.add(tmpResultSet.getString("TYPE_NAME"));
+    ResultSet rs = md.getColumns(null, null, tableName, null);
+    ResultSetMetaData rsMeta = rs.getMetaData();
+    List<String> columnTypesList = new ArrayList<String>();
+    while (rs.next()) {
+      columnTypesList.add(mapJdbcToPostgresType(rs.getString("TYPE_NAME")));
     }
-    String[] tmpColumnTypes = new String[tmpColumnTypesList.size()];
-    for (int i = 0; i < tmpColumnTypesList.size(); i++) {
-      switch (tmpColumnTypesList.get(i)) {
-        case "BYTE":
-        case "SHORT":
-          tmpColumnTypes[i] = "SMALLINT";
-          break;
-        case "LONG":
-          tmpColumnTypes[i] = "BIGINT";
-          break;
-        case "CHAR":
-          tmpColumnTypes[i] = "CHAR (1)";
-          break;
-        case "STRING":
-          tmpColumnTypes[i] = "TEXT";
-          break;
-        case "FLOAT":
-          tmpColumnTypes[i] = "FLOAT4";
-          break;
-        case "DOUBLE":
-          tmpColumnTypes[i] = "FLOAT8";
-          break;
-        case "BLOB":
-          tmpColumnTypes[i] = "BYTEA";
-          break;
-        case "BOOL_ARRAY":
-          tmpColumnTypes[i] = "BOOL[]";
-          break;
-        case "STRING_ARRAY":
-          tmpColumnTypes[i] = "TEXT[]";
-          break;
-        case "BYTE_ARRAY":
-        case "SHORT_ARRAY":
-          tmpColumnTypes[i] = "SMALLINT[]";
-          break;
-        case "INTEGER_ARRAY":
-          tmpColumnTypes[i] = "INTEGER[]";
-          break;
-        case "LONG_ARRAY":
-          tmpColumnTypes[i] = "BIGINT[]";
-          break;
-        case "FLOAT_ARRAY":
-          tmpColumnTypes[i] = "FLOAT4[]";
-          break;
-        case "DOUBLE_ARRAY":
-          tmpColumnTypes[i] = "FLOAT8[]";
-          break;
-        case "TIMESTAMP_ARRAY":
-          tmpColumnTypes[i] = "TIMESTAMP[]";
-          break;
-        default:
-          tmpColumnTypes[i] = tmpColumnTypesList.get(i);
-      }
-    }
-    return tmpColumnTypes;
+    return (String[]) columnTypesList.toArray();
   }
 
   /*
@@ -556,4 +502,28 @@ public class JDBCUtils implements CInterface {
     assertConnExists();
     return conn.getMetaData().getIdentifierQuoteString();
   }
+
+  private String mapJdbcToPostgresType(String in) {
+    switch (in) {
+      case "BYTE":
+      case "SHORT"           : return "SMALLINT";
+      case "LONG"            : return "BIGINT";
+      case "CHAR"            : return "CHAR (1)";
+      case "STRING"          : return "TEXT";
+      case "FLOAT"           : return "FLOAT4";
+      case "DOUBLE"          : return "FLOAT8";
+      case "BLOB"            : return "BYTEA";
+      case "BOOL_ARRAY"      : return "BOOL[]";
+      case "STRING_ARRAY"    : return "TEXT[]";
+      case "BYTE_ARRAY":
+      case "SHORT_ARRAY"     : return "SMALLINT[]";
+      case "INTEGER_ARRAY"   : return "INTEGER[]";
+      case "LONG_ARRAY"      : return "BIGINT[]";
+      case "FLOAT_ARRAY"     : return "FLOAT4[]";
+      case "DOUBLE_ARRAY"    : return "FLOAT8[]";
+      case "TIMESTAMP_ARRAY" : return "TIMESTAMP[]";
+      default: return in;
+    }
+  }
+
 }
