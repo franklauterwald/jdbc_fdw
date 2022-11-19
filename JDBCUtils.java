@@ -30,8 +30,6 @@ import java.util.concurrent.*;
 public class JDBCUtils implements CInterface {
   private Connection conn = null;
   private static JDBCDriverLoader jdbcDriverLoader;
-  private StringWriter exceptionStringWriter;
-  private PrintWriter exceptionPrintWriter;
   private int queryTimeoutValue;
   private Statement tmpStmt;
   private PreparedStatement tmpPstmt;
@@ -59,13 +57,11 @@ public class JDBCUtils implements CInterface {
     String fileName = options[5];
 
     queryTimeoutValue = Integer.parseInt(qTimeoutValue);
-    exceptionStringWriter = new StringWriter();
-    exceptionPrintWriter = new PrintWriter(exceptionStringWriter);
     File JarFile = new File(fileName);
     String jarfile_path = JarFile.toURI().toURL().toString();
     if (jdbcDriverLoader == null) {
       /* If jdbcDriverLoader is being created. */
-      jdbcDriverLoader = new JDBCDriverLoader(new URL[] {JarFile.toURI().toURL()});
+      jdbcDriverLoader = new JDBCDriverLoader(new URL[] { JarFile.toURI().toURL() });
     } else if (jdbcDriverLoader.CheckIfClassIsLoaded(driverClassName) == null) {
       jdbcDriverLoader.addPath(jarfile_path);
     }
@@ -109,6 +105,7 @@ public class JDBCUtils implements CInterface {
    *      with a specific resultID and return back to the calling C function
    *      Returns:
    *          resultID on success
+   * TODO: merge with createStatement
    */
   @Override
   public int createStatementID(String query) throws Exception {
@@ -148,13 +145,13 @@ public class JDBCUtils implements CInterface {
   @Override
   public int createPreparedStatement(String query) throws Exception {
     assertConnExists();
-    PreparedStatement tmpPstmt = (PreparedStatement) conn.prepareStatement(query);
+    PreparedStatement stmt = conn.prepareStatement(query);
     if (queryTimeoutValue != 0) {
-      tmpPstmt.setQueryTimeout(queryTimeoutValue);
+      stmt.setQueryTimeout(queryTimeoutValue);
     }
-    int tmpResultSetKey = initResultSetKey();
-    resultSetInfoMap.put(tmpResultSetKey, new ResultSetInfo(null, null, 0, tmpPstmt));
-    return tmpResultSetKey;
+    int resultSetKey = initResultSetKey();
+    resultSetInfoMap.put(resultSetKey, new ResultSetInfo(null, null, 0, stmt));
+    return resultSetKey;
   }
 
   /*
@@ -163,14 +160,12 @@ public class JDBCUtils implements CInterface {
    */
   @Override
   public void execPreparedStatement(int resultSetID) throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
-    int tmpNumberOfAffectedRows = tmpPstmt.executeUpdate();
-    tmpPstmt.clearParameters();
+    PreparedStatement stmt = getValidatedStatement(resultSetId);
+    int numAffectedRows = stmt.executeUpdate();
+    stmt.clearParameters();
 
-    resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
-    resultSetInfoMap.get(resultSetID).setNumberOfAffectedRows(tmpNumberOfAffectedRows);
+    resultSetInfoMap.get(resultSetID).setPstmt(stmt);
+    resultSetInfoMap.get(resultSetID).setNumberOfAffectedRows(numAffectedRows);
   }
 
   /*
@@ -203,62 +198,58 @@ public class JDBCUtils implements CInterface {
    */
   @Override
   public Object[] getResultSet(int resultSetID) throws SQLException {
-    try {
-      ResultSet tmpResultSet = resultSetInfoMap.get(resultSetID).getResultSet();
-      int tmpNumberOfColumns = resultSetInfoMap.get(resultSetID).getNumberOfColumns();
-      Object[] tmpArrayOfResultRow = new Object[tmpNumberOfColumns];
-      ResultSetMetaData mtData = tmpResultSet.getMetaData();
+    ResultSet rs = resultSetInfoMap.get(resultSetID).getResultSet();
+    int numCols = resultSetInfoMap.get(resultSetID).getNumberOfColumns();
+    Object[] resultRowArray = new Object[numCols];
+    ResultSetMetaData mtData = rs.getMetaData();
 
-      /* Row-by-row processing is done in jdbc_fdw.One row
-       * at a time is returned to the C code. */
-      if (tmpResultSet.next()) {
-        for (int i = 0; i < tmpNumberOfColumns; i++) {
-          int columnType = mtData.getColumnType(i + 1);
+    /* Row-by-row processing is done in jdbc_fdw.One row
+     * at a time is returned to the C code. */
+    if (rs.next()) {
+      for (int i = 0; i < numCols; i++) {
+        int columnType = mtData.getColumnType(i + 1);
 
-          switch (columnType) {
-            case Types.BINARY:
-            case Types.LONGVARBINARY:
-            case Types.VARBINARY:
-            case Types.BLOB:
-              /* Get byte array */
-              tmpArrayOfResultRow[i] = tmpResultSet.getBytes(i + 1);
-              break;
-            case Types.TIMESTAMP:
-              /*
-               * Get the timestamp in UTC time zone by default
-               * to avoid being affected by the remote server's time zone.
-               */
-              java.util.Calendar cal = Calendar.getInstance();
-              cal.setTimeZone(TimeZone.getTimeZone("UTC"));
-              Timestamp resTimestamp = tmpResultSet.getTimestamp(i + 1, cal);
-              if (resTimestamp != null) {
-                /* Timestamp is returned as text in ISO 8601 style */
-                tmpArrayOfResultRow[i] = resTimestamp.toInstant().toString();
-              } else {
-                tmpArrayOfResultRow[i] = null;
-              }
-              break;
-            default:
-              /* Convert all columns to String */
-              tmpArrayOfResultRow[i] = tmpResultSet.getString(i + 1);
-          }
+        switch (columnType) {
+          case Types.BINARY:
+          case Types.LONGVARBINARY:
+          case Types.VARBINARY:
+          case Types.BLOB:
+            /* Get byte array */
+            resultRowArray[i] = rs.getBytes(i + 1);
+            break;
+          case Types.TIMESTAMP:
+            /*
+             * Get the timestamp in UTC time zone by default
+             * to avoid being affected by the remote server's time zone.
+             */
+            java.util.Calendar cal = Calendar.getInstance();
+            cal.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Timestamp resTimestamp = rs.getTimestamp(i + 1, cal);
+            if (resTimestamp != null) {
+              /* Timestamp is returned as text in ISO 8601 style */
+              resultRowArray[i] = resTimestamp.toInstant().toString();
+            } else {
+              resultRowArray[i] = null;
+            }
+            break;
+          default:
+            /* Convert all columns to String */
+            resultRowArray[i] = rs.getString(i + 1);
         }
-        /* The current row in resultSet is returned
-         * to the C code in a Java String array that
-         * has the value of the fields of the current
-         * row as it values. */
-        return tmpArrayOfResultRow;
-      } else {
-        /*
-         * All of resultSet's rows have been returned to the C code.
-         * Close tmpResultSet's statement
-         */
-        tmpResultSet.getStatement().close();
-        clearResultSetID(resultSetID);
-        return null;
       }
-    } catch (Throwable e) {
-      throw e;
+      /* The current row in resultSet is returned
+       * to the C code in a Java String array that
+       * has the value of the fields of the current
+       * row as it values. */
+      return resultRowArray;
+    } else {
+      /*
+       * All of resultSet's rows have been returned to the C code.
+       * Close tmpResultSet's statement
+       */
+      rs.getStatement().close();
+      clearResultSetID(resultSetID);
+      return null;
     }
   }
 
