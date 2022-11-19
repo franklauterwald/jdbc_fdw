@@ -447,15 +447,20 @@ public class JDBCUtils implements CInterface {
     }
   }
 
+  protected PreparedStatement getValidatedStatement(int resultSetID) {
+    assertConnExists();
+    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
+    assertStatementNotNull(tmpPstmt);
+    return tmpPstmt;
+  }
+
   /*
    * bindNullPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
    */
   @Override
   public void bindNullPreparedStatement(int attnum, int resultSetID) throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setNull(attnum, Types.NULL);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -467,9 +472,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindIntPreparedStatement(int values, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setInt(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -481,9 +484,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindLongPreparedStatement(long values, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setLong(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -491,14 +492,11 @@ public class JDBCUtils implements CInterface {
   /*
    * bindFloatPreparedStatement
    *      Bind the value to the PreparedStatement object based on the query
-   * Called from C
    */
+  @Override
   public void bindFloatPreparedStatement(float values, int attnum, int resultSetID)
       throws SQLException {
-
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setFloat(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -510,9 +508,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindDoublePreparedStatement(double values, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setDouble(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -524,9 +520,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindBooleanPreparedStatement(boolean values, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setBoolean(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -538,9 +532,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindStringPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     tmpPstmt.setString(attnum, values);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
   }
@@ -552,9 +544,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindByteaPreparedStatement(byte[] dat, long length, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     InputStream targetStream = new ByteArrayInputStream(dat);
     tmpPstmt.setBinaryStream(attnum, targetStream, length);
     resultSetInfoMap.get(resultSetID).setPstmt(tmpPstmt);
@@ -567,10 +557,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindTimePreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
-
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
     tmpPstmt.setObject(attnum, localTime);
@@ -585,10 +572,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindTimeTZPreparedStatement(String values, int attnum, int resultSetID)
       throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
-
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     String pattern = "[HH:mm:ss][.SSSSSS][.SSSSS][.SSSS][.SSS][.SS][.S][z][XXX][X]";
     LocalTime localTime = LocalTime.parse(values, DateTimeFormatter.ofPattern(pattern));
     tmpPstmt.setObject(attnum, localTime);
@@ -619,9 +603,7 @@ public class JDBCUtils implements CInterface {
   @Override
   public void bindTimestampPreparedStatement(long usec, int attnum, int resultSetID)
     throws SQLException {
-    assertConnExists();
-    PreparedStatement tmpPstmt = resultSetInfoMap.get(resultSetID).getPstmt();
-    assertStatementNotNull(tmpPstmt);
+    PreparedStatement tmpPstmt = getValidatedStatement(resultSetID);
     Instant instant = Instant.EPOCH.plus(usec, ChronoUnit.MICROS);
     Timestamp timestamp = Timestamp.from(instant);
     setTimestamp(tmpPstmt, attnum, timestamp);
@@ -653,7 +635,6 @@ public class JDBCUtils implements CInterface {
   @Override
   public String getIdentifierQuoteString() throws SQLException {
     assertConnExists();
-    DatabaseMetaData md = conn.getMetaData();
-    return md.getIdentifierQuoteString();
+    return conn.getMetaData().getIdentifierQuoteString();
   }
 }
