@@ -231,7 +231,7 @@ jdbc_convert_object_to_datum(Oid pgtype, int32 pgtypmod, jobject obj)
 		{
 			/*
 			 * By default, data is retrieved as string and then
-			 * convert to compatible data types
+			 * converted to compatible data types
 			 */
 			char   *value = jdbc_convert_string_to_cstring(obj);
 
@@ -262,7 +262,6 @@ static void
 jdbc_attach_jvm()
 {
 	ereport(DEBUG3, (errmsg("In jdbc_attach_jvm")));
-
 	(*jvm)->AttachCurrentThread(jvm, (void **) &Jenv, NULL);
 }
 
@@ -403,18 +402,18 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 	JDBCUtilsClass = (*Jenv)->FindClass(Jenv, "JDBCUtils");
 	if (JDBCUtilsClass == NULL)
 	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils class!")));
+		ereport(ERROR, errmsg("Failed to find the JDBCUtils class!"));
 	}
 	idCreate = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "createConnection",
 									"(I[Ljava/lang/String;)V");
 	if (idCreate == NULL)
 	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.createConnection method!")));
+		ereport(ERROR, errmsg("Failed to find the JDBCUtils.createConnection method!"));
 	}
 	idGetIdentifierQuoteString = (*Jenv)->GetMethodID(Jenv, JDBCUtilsClass, "getIdentifierQuoteString", "()Ljava/lang/String;");
 	if (idGetIdentifierQuoteString == NULL)
 	{
-		ereport(ERROR, (errmsg("Failed to find the JDBCUtils.getIdentifierQuoteString method")));
+		ereport(ERROR, errmsg("Failed to find the JDBCUtils.getIdentifierQuoteString method"));
 	}
 
 	/*
@@ -465,7 +464,7 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 		(*Jenv)->DeleteLocalRef(Jenv, stringArray[i]);
 	}
 	(*Jenv)->DeleteLocalRef(Jenv, argArray);
-	ereport(DEBUG3, (errmsg("Created a JDBC connection: %s", opts.url)));
+	ereport(DEBUG3, errmsg("Created a JDBC connection to : %s", opts.url));
 	/* get default identifier quote string */
 	jq_exception_clear();
 	identifierQuoteString = (jstring) (*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idGetIdentifierQuoteString);
@@ -538,7 +537,7 @@ jq_exec(Jconn * conn, const char *query)
 	jobject		JDBCUtilsObject;
 	Jresult    *res;
 
-	ereport(DEBUG3, (errmsg("In jq_exec(%p): %s", conn, query)));
+	ereport(DEBUG3, errmsg("In jq_exec(%p): %s", conn, query));
 
 	jq_get_JDBCUtils(conn, &JDBCUtilsClass, &JDBCUtilsObject);
 
@@ -1302,10 +1301,12 @@ jq_get_exception()
 		}
 		exceptionMsgID = (*Jenv)->GetMethodID(Jenv, objectClass, "toString", "()Ljava/lang/String;");
 		exceptionMsg = (jstring) (*Jenv)->CallObjectMethod(Jenv, exc, exceptionMsgID);
+
 		exceptionString = jdbc_convert_string_to_cstring((jobject) exceptionMsg);
 		err_msg = pstrdup(exceptionString);
-		ereport(ERROR, (errmsg("remote server returned an error")));
-		ereport(DEBUG3, (errmsg("%s", err_msg)));
+		ereport(ERROR, errmsg("remote server returned an error"));
+		ereport(DEBUG3, errmsg("%s", err_msg));
+
 	}
 	return;
 }
