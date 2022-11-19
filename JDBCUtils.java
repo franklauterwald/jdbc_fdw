@@ -37,8 +37,8 @@ public class JDBCUtils {
   private PreparedStatement tmpPstmt;
   private static ConcurrentHashMap<Integer, Connection> ConnectionHash = new ConcurrentHashMap<Integer, Connection>();
   private static int resultSetKey = 1;
-  private static ConcurrentHashMap<Integer, resultSetInfo> resultSetInfoMap =
-      new ConcurrentHashMap<Integer, resultSetInfo>();
+  private static ConcurrentHashMap<Integer, ResultSetInfo> resultSetInfoMap =
+      new ConcurrentHashMap<Integer, ResultSetInfo>();
 
   /*
    * createConnection
@@ -140,7 +140,7 @@ public class JDBCUtils {
       tmpResultSetKey = initResultSetKey();
       resultSetInfoMap.put(
           tmpResultSetKey,
-          new resultSetInfo(
+          new ResultSetInfo(
               tmpResultSet, tmpNumberOfColumns, tmpNumberOfAffectedRows, null));
       return tmpResultSetKey;
     } catch (Throwable e) {
@@ -176,7 +176,7 @@ public class JDBCUtils {
         tmpPstmt.setQueryTimeout(queryTimeoutValue);
       }
       int tmpResultSetKey = initResultSetKey();
-      resultSetInfoMap.put(tmpResultSetKey, new resultSetInfo(null, null, 0, tmpPstmt));
+      resultSetInfoMap.put(tmpResultSetKey, new ResultSetInfo(null, null, 0, tmpPstmt));
       return tmpResultSetKey;
     } catch (Throwable e) {
       throw e;

@@ -14,13 +14,13 @@
 import java.sql.*;
 import java.util.*;
 
-public class resultSetInfo {
+public class ResultSetInfo {
   private ResultSet resultSet;
   private Integer numberOfColumns;
   private int numberOfAffectedRows;
   private PreparedStatement pstmt;
 
-  public resultSetInfo(
+  public ResultSetInfo(
       ResultSet fieldResultSet,
       Integer fieldNumberOfColumns,
       int fieldNumberOfAffectedRows,

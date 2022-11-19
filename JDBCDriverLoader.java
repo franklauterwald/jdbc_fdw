@@ -26,8 +26,7 @@ public class JDBCDriverLoader extends URLClassLoader
  * JDBCDriverLoader
  *		Constructor of JDBCDriverLoader class.
  */
-	public 
-	JDBCDriverLoader(URL[] path)
+	public JDBCDriverLoader(URL[] path)
 	{
 		super(path);
 	}
@@ -36,9 +35,7 @@ public class JDBCDriverLoader extends URLClassLoader
  * addPath
  *		Adds a path to the path of the loader.
  */
-	public void 
-	addPath(String path) throws MalformedURLException
-	{
+	public void	addPath(String path) throws MalformedURLException {
 		addURL(new URL (path));
 	}
 
