@@ -16,19 +16,19 @@ import java.util.*;
 
 public class ResultSetInfo {
   private ResultSet resultSet;
-  private Integer numberOfColumns;
+  private int numberOfColumns;
   private int numberOfAffectedRows;
   private PreparedStatement pstmt;
 
   public ResultSetInfo(
-      ResultSet fieldResultSet,
-      Integer fieldNumberOfColumns,
-      int fieldNumberOfAffectedRows,
-      PreparedStatement fieldPstmt) {
-    this.resultSet = fieldResultSet;
-    this.numberOfColumns = fieldNumberOfColumns;
-    this.numberOfAffectedRows = fieldNumberOfAffectedRows;
-    this.pstmt = fieldPstmt;
+      ResultSet resultSet,
+      int numberOfColumns,
+      int numberOfAffectedRows,
+      PreparedStatement pstmt) {
+    this.resultSet = resultSet;
+    this.numberOfColumns = numberOfColumns;
+    this.numberOfAffectedRows = numberOfAffectedRows;
+    this.pstmt = pstmt;
   }
 
   public void setPstmt(PreparedStatement fieldPstmt) {
@@ -43,7 +43,7 @@ public class ResultSetInfo {
     return resultSet;
   }
 
-  public Integer getNumberOfColumns() {
+  public int getNumberOfColumns() {
     return numberOfColumns;
   }
 

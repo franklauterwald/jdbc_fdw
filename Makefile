@@ -14,7 +14,7 @@ JDBC_CONFIG = jdbc_config
 
 LIBDIR=/usr/lib64/
 
-SHLIB_LINK += -L$(LIBDIR) -ljvm -L /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server
+SHLIB_LINK += -L$(LIBDIR) -ljvm -L .
  
 
 UNAME = $(shell uname)

@@ -60,7 +60,7 @@ public class JDBCUtils implements CInterface {
     if (jdbcDriverLoader == null) {
       /* If jdbcDriverLoader is being created. */
       jdbcDriverLoader = new JDBCDriverLoader(new URL[] { JarFile.toURI().toURL() });
-    } else if (jdbcDriverLoader.CheckIfClassIsLoaded(driverClassName) == null) {
+    } else if (! jdbcDriverLoader.isClassLoaded(driverClassName)) {
       jdbcDriverLoader.addPath(jarfile_path);
     }
     Class jdbcDriverClass = jdbcDriverLoader.loadClass(driverClassName);
@@ -112,15 +112,14 @@ public class JDBCUtils implements CInterface {
     if (queryTimeoutValue != 0) {
       globalStmt.setQueryTimeout(queryTimeoutValue);
     }
-    ResultSet tmpResultSet = globalStmt.executeQuery(query);
-    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
-    int tmpNumberOfColumns = rSetMetadata.getColumnCount();
-    int tmpResultSetKey = initResultSetKey();
+    ResultSet rs = globalStmt.executeQuery(query);
+    ResultSetMetaData rsMetadata = rs.getMetaData();
+    int numberOfColumns = rsMetadata.getColumnCount();
+    int resultSetKey = initResultSetKey();
     resultSetInfoMap.put(
-        tmpResultSetKey,
-        new ResultSetInfo(
-            tmpResultSet, tmpNumberOfColumns, 0, null));
-    return tmpResultSetKey;
+        resultSetKey,
+        new ResultSetInfo( rs, numberOfColumns, 0, null));
+    return resultSetKey;
   }
 
   /*
@@ -148,7 +147,7 @@ public class JDBCUtils implements CInterface {
       stmt.setQueryTimeout(queryTimeoutValue);
     }
     int resultSetKey = initResultSetKey();
-    resultSetInfoMap.put(resultSetKey, new ResultSetInfo(null, null, 0, stmt));
+    resultSetInfoMap.put(resultSetKey, new ResultSetInfo(null, 0, 0, stmt));
     return resultSetKey;
   }
 
@@ -161,8 +160,6 @@ public class JDBCUtils implements CInterface {
     PreparedStatement stmt = getValidatedStatement(resultSetID);
     int numAffectedRows = stmt.executeUpdate();
     stmt.clearParameters();
-
-    resultSetInfoMap.get(resultSetID).setPstmt(stmt);
     resultSetInfoMap.get(resultSetID).setNumberOfAffectedRows(numAffectedRows);
   }
 
@@ -234,8 +231,8 @@ public class JDBCUtils implements CInterface {
       return resultRowArray;
     } else {
       /*
-       * All of resultSet's rows have been returned to the C code.
-       * Close tmpResultSet's statement
+       * All of ResultSet's rows have been returned to the C code.
+       * Close ResultSet's statement
        */
       rs.getStatement().close();
       clearResultSetID(resultSetID);
@@ -300,17 +297,12 @@ public class JDBCUtils implements CInterface {
   public String[] getPrimaryKey(String tableName) throws SQLException {
     assertConnExists();
     DatabaseMetaData md = conn.getMetaData();
-    ResultSet tmpResultSet = md.getPrimaryKeys(null, null, tableName);
-    ResultSetMetaData rSetMetadata = tmpResultSet.getMetaData();
-    List<String> tmpPrimaryKeyList = new ArrayList<String>();
-    while (tmpResultSet.next()) {
-      tmpPrimaryKeyList.add(tmpResultSet.getString("COLUMN_NAME"));
+    ResultSet rs = md.getPrimaryKeys(null, null, tableName);
+    List<String> primaryKey = new ArrayList<String>();
+    while (rs.next()) {
+      primaryKey.add(rs.getString("COLUMN_NAME"));
     }
-    String[] tmpPrimaryKey = new String[tmpPrimaryKeyList.size()];
-    for (int i = 0; i < tmpPrimaryKeyList.size(); i++) {
-      tmpPrimaryKey[i] = tmpPrimaryKeyList.get(i);
-    }
-    return tmpPrimaryKey;
+    return (String[]) primaryKey.toArray();
   }
 
   /*
@@ -462,7 +454,7 @@ public class JDBCUtils implements CInterface {
   /*
    * Avoid race case.
    */
-  synchronized protected int initResultSetKey() throws Exception{
+  synchronized protected int initResultSetKey() throws Exception {
     int datum = this.resultSetKey;
     while (resultSetInfoMap.containsKey(this.resultSetKey)) {
       /* avoid giving minus key */
