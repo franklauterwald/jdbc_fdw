@@ -31,10 +31,6 @@ public class ResultSetInfo {
     this.pstmt = pstmt;
   }
 
-  public void setPstmt(PreparedStatement fieldPstmt) {
-    this.pstmt = fieldPstmt;
-  }
-
   public void setNumberOfAffectedRows(int fieldNumberOfAffectedRows) {
     this.numberOfAffectedRows = fieldNumberOfAffectedRows;
   }
@@ -45,10 +41,6 @@ public class ResultSetInfo {
 
   public int getNumberOfColumns() {
     return numberOfColumns;
-  }
-
-  public int getNumberOfAffectedRows() {
-    return numberOfAffectedRows;
   }
 
   public PreparedStatement getPstmt() {
