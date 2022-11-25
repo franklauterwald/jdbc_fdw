@@ -1,6 +1,7 @@
 /*
- * --------------------------------------------- jq.c Implementation of Low
- * level JDBC based functions replacing the libpq-fe functions
+ * ---------------------------------------------
+ * jq.c Implementation of Low level
+ * JDBC based functions replacing the libpq-fe functions
  *
  * Heimir Sverrisson, 2015-04-13
  *
@@ -361,16 +362,13 @@ jdbc_jvm_init(const ForeignServer * server, const UserMapping * user)
 static Jconn *
 jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * user)
 {
-	jmethodID	idCreate;
 	jstring		stringArray[6];
 	jclass		javaString;
 	jobjectArray argArray;
 	jclass		JDBCUtilsClass;
-	jmethodID	idGetIdentifierQuoteString;
 	jstring		identifierQuoteString;
 	char	   *quote_string;
 	char	   *querytimeout_string;
-	int			i;
 	int			numParams = sizeof(stringArray) / sizeof(jstring);	/* Number of parameters
 																	 * to Java */
 	int			intSize = 10;	/* The string size to allocate for an integer
@@ -392,8 +390,6 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 		ereport(ERROR, errmsg("Failed to find the JDBCUtils class!"));
 	}
     jq_load_jni_methods(JDBCUtilsClass, jni_methods);
-	idCreate = jni_methods->createConnection;
-	idGetIdentifierQuoteString = jni_methods->getIdentifierQuoteString;
 
 	/*
 	 * Construct the array to pass our parameters Query timeout is an int, we
@@ -413,13 +409,13 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 	if (argArray == NULL)
 	{
 		/* Return Java memory */
-		for (i = 0; i < numParams; i++)
+		for (int i = 0; i < numParams; i++)
 		{
 			(*Jenv)->DeleteLocalRef(Jenv, stringArray[i]);
 		}
 		ereport(ERROR, (errmsg("Failed to create argument array")));
 	}
-	for (i = 1; i < numParams; i++)
+	for (int i = 1; i < numParams; i++)
 	{
 		(*Jenv)->SetObjectArrayElement(Jenv, argArray, i, stringArray[i]);
 	}
@@ -427,7 +423,7 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 	if (conn->JDBCUtilsObject == NULL)
 	{
 		/* Return Java memory */
-		for (i = 0; i < numParams; i++)
+		for (int i = 0; i < numParams; i++)
 		{
 			(*Jenv)->DeleteLocalRef(Jenv, stringArray[i]);
 		}
@@ -435,10 +431,10 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 		ereport(ERROR, (errmsg("Failed to create java call")));
 	}
 	jq_exception_clear();
-	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idCreate, keyid, argArray);
+	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->createConnection, keyid, argArray);
 	jq_get_exception();
 	/* Return Java memory */
-	for (i = 0; i < numParams; i++)
+	for (int i = 0; i < numParams; i++)
 	{
 		(*Jenv)->DeleteLocalRef(Jenv, stringArray[i]);
 	}
@@ -446,7 +442,7 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 	ereport(DEBUG3, errmsg("Created a JDBC connection to : %s", opts.url));
 	/* get default identifier quote string */
 	jq_exception_clear();
-	identifierQuoteString = (jstring) (*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idGetIdentifierQuoteString);
+	identifierQuoteString = (jstring) (*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->getIdentifierQuoteString);
 	jq_get_exception();
 	quote_string = jdbc_convert_string_to_cstring((jobject) identifierQuoteString);
 	conn->q_char = pstrdup(quote_string);
@@ -510,7 +506,6 @@ jdbc_get_server_options(JserverOptions * opts, const ForeignServer * f_server, c
 Jresult *
 jq_exec(Jconn * conn, const char *query)
 {
-	jmethodID	idCreateStatement;
 	jstring		statement;
 	jclass		JDBCUtilsClass;
 	jobject		JDBCUtilsObject;
@@ -523,7 +518,6 @@ jq_exec(Jconn * conn, const char *query)
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idCreateStatement = jni_methods->createStatement;
 	/* The query argument */
 	statement = (*Jenv)->NewStringUTF(Jenv, query);
 	if (statement == NULL)
@@ -531,7 +525,7 @@ jq_exec(Jconn * conn, const char *query)
 		ereport(ERROR, (errmsg("Failed to create query argument")));
 	}
 	jq_exception_clear();
-	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idCreateStatement, statement);
+	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->createStatement, statement);
 	jq_get_exception();
 	/* Return Java memory */
 	(*Jenv)->DeleteLocalRef(Jenv, statement);
@@ -542,7 +536,6 @@ jq_exec(Jconn * conn, const char *query)
 Jresult *
 jq_exec_id(Jconn * conn, const char *query, int *resultSetID)
 {
-	jmethodID	idCreateStatementID;
 	jstring		statement;
 	jclass		JDBCUtilsClass;
 	jobject		JDBCUtilsObject;
@@ -555,7 +548,6 @@ jq_exec_id(Jconn * conn, const char *query, int *resultSetID)
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idCreateStatementID = jni_methods->createStatementID;
 	/* The query argument */
 	statement = (*Jenv)->NewStringUTF(Jenv, query);
 	if (statement == NULL)
@@ -563,7 +555,7 @@ jq_exec_id(Jconn * conn, const char *query, int *resultSetID)
 		ereport(ERROR, (errmsg("Failed to create query argument")));
 	}
 	jq_exception_clear();
-	*resultSetID = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, idCreateStatementID, statement);
+	*resultSetID = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, jni_methods->createStatementID, statement);
 	jq_get_exception();
 	if (*resultSetID < 0)
 	{
@@ -581,7 +573,6 @@ jq_exec_id(Jconn * conn, const char *query, int *resultSetID)
 void *
 jq_release_resultset_id(Jconn * conn, int resultSetID)
 {
-	jmethodID	idClearResultSetID;
 	jclass		JDBCUtilsClass;
 	jobject		JDBCUtilsObject;
 
@@ -589,9 +580,8 @@ jq_release_resultset_id(Jconn * conn, int resultSetID)
 
 	jq_get_JDBCUtils(conn, &JDBCUtilsClass, &JDBCUtilsObject);
 
-	idClearResultSetID = jni_methods->clearResultSetID;
 	jq_exception_clear();
-	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idClearResultSetID, resultSetID);
+	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->clearResultSetID, resultSetID);
 	jq_get_exception();
 
 	return NULL;
@@ -607,12 +597,9 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 	TupleTableSlot *tupleSlot = node->ss.ss_ScanTupleSlot;
 	TupleDesc	tupleDescriptor = tupleSlot->tts_tupleDescriptor;
 	jclass		JDBCUtilsClass;
-	jmethodID	idResultSet;
-	jmethodID	idNumberOfColumns;
 	jobjectArray rowArray;
 	char	  **values;
 	int			numberOfColumns;
-	int			i;
 
 	ereport(DEBUG3, (errmsg("In jq_iterate")));
 
@@ -624,9 +611,8 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 	ExecClearTuple(tupleSlot);
 	jdbc_sig_int_interrupt_check_process();
 
-	idNumberOfColumns = jni_methods->getNumberOfColumns;
 	jq_exception_clear();
-	numberOfColumns = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, idNumberOfColumns, resultSetID);
+	numberOfColumns = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, jni_methods->getNumberOfColumns, resultSetID);
 	jq_get_exception();
 	if (numberOfColumns < 0)
 	{
@@ -638,17 +624,16 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 		ereport(ERROR, (errmsg("Error pushing local java frame")));
 	}
 
-	idResultSet = jni_methods->getResultSet;
 	/* Allocate pointers to the row data */
 	jq_exception_clear();
-	rowArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idResultSet, resultSetID);
+	rowArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, jni_methods->getResultSet, resultSetID);
 	jq_get_exception();
 	if (rowArray != NULL)
 	{
 		if(retrieved_attrs != NIL) {
 
 			values = (char **) palloc0(tupleDescriptor->natts * sizeof(char *));
-			for (i = 0; i < retrieved_attrs->length; i++)
+			for (int i = 0; i < retrieved_attrs->length; i++)
 			{
 				int			column_index = retrieved_attrs->elements[i].int_value - 1;
 				Oid			pgtype = TupleDescAttr(tupleDescriptor, column_index)->atttypid;
@@ -667,7 +652,7 @@ jq_iterate(Jconn * conn, ForeignScanState * node, List * retrieved_attrs, int re
 			memset(tupleSlot->tts_isnull, true, sizeof(bool) * (int)size);
 			ExecClearTuple(tupleSlot);
 			values = (char **) palloc0(size * sizeof(char *));
-			for (i = 0; i < size; i++)
+			for (int i = 0; i < size; i++)
 			{
 				values[i] = jdbc_convert_string_to_cstring((jobject) (*Jenv)->GetObjectArrayElement(Jenv, rowArray, i));
 				if (values[i] != NULL)
@@ -689,7 +674,6 @@ Jresult *
 jq_exec_prepared(Jconn * conn, const int *paramLengths,
 				 const int *paramFormats, int resultFormat, int resultSetID)
 {
-	jmethodID	idExecPreparedStatement;
 	jclass		JDBCUtilsClass;
 	jobject		JDBCUtilsObject;
 	Jresult    *res;
@@ -701,9 +685,8 @@ jq_exec_prepared(Jconn * conn, const int *paramLengths,
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idExecPreparedStatement = jni_methods->execPreparedStatement;
 	jq_exception_clear();
-	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idExecPreparedStatement, resultSetID);
+	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->execPreparedStatement, resultSetID);
 	jq_get_exception();
 
 	/* Return Java memory */
@@ -738,7 +721,6 @@ Jresult *
 jq_prepare(Jconn * conn, const char *query,
 		   const Oid * paramTypes, int *resultSetID)
 {
-	jmethodID	idCreatePreparedStatement;
 	jstring		statement;
 	jclass		JDBCUtilsClass;
 	jobject		JDBCUtilsObject;
@@ -751,7 +733,6 @@ jq_prepare(Jconn * conn, const char *query,
 	res = (Jresult *) palloc0(sizeof(Jresult));
 	*res = PGRES_FATAL_ERROR;
 
-	idCreatePreparedStatement = jni_methods->createPreparedStatement;
 	/* The query argument */
 	statement = (*Jenv)->NewStringUTF(Jenv, query);
 	if (statement == NULL)
@@ -760,7 +741,7 @@ jq_prepare(Jconn * conn, const char *query,
 	}
 	jq_exception_clear();
 	/* get the resultSetID */
-	*resultSetID = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, idCreatePreparedStatement, statement);
+	*resultSetID = (int) (*Jenv)->CallIntMethod(Jenv, conn->JDBCUtilsObject, jni_methods->createPreparedStatement, statement);
 	jq_get_exception();
 	if (*resultSetID < 0)
 	{
@@ -803,6 +784,7 @@ jq_connect_db_params(const ForeignServer * server, const UserMapping * user,
 	{
 		const char *pvalue = values[i];
 
+        // FIXME: null pointer dereference
 		if (pvalue == NULL && pvalue[0] == '\0')
 		{
 			break;
@@ -886,7 +868,6 @@ jq_transaction_status(const Jconn * conn)
 void *
 jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, int resultSetID)
 {
-	jmethodID	idBindPreparedStatement;
 	jclass		JDBCUtilsClass;
 	jobject		JDBCUtilsObject;
 	Jresult	   *res;
@@ -903,9 +884,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 
 	if (*isnull)
 	{
-		idBindPreparedStatement = jni_methods->bindNullPreparedStatement;
 		jq_exception_clear();
-		(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, attnum, resultSetID);
+		(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindNullPreparedStatement, attnum, resultSetID);
 		jq_get_exception();
 		*res = PGRES_COMMAND_OK;
 		return NULL;
@@ -917,9 +897,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				int16		dat = DatumGetInt16(value);
 
-				idBindPreparedStatement = jni_methods->bindIntPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindIntPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -927,9 +906,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				int32		dat = DatumGetInt32(value);
 
-				idBindPreparedStatement = jni_methods->bindNullPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindIntPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -937,9 +915,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				int64		dat = DatumGetInt64(value);
 
-				idBindPreparedStatement = jni_methods->bindLongPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindLongPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -949,9 +926,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				float4		dat = DatumGetFloat4(value);
 
-				idBindPreparedStatement = jni_methods->bindFloatPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindFloatPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -959,9 +935,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				float8		dat = DatumGetFloat8(value);
 
-				idBindPreparedStatement = jni_methods->bindDoublePreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindDoublePreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -971,9 +946,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				Datum		valueDatum = DirectFunctionCall1(numeric_float8, value);
 				float8		dat = DatumGetFloat8(valueDatum);
 
-				idBindPreparedStatement = jni_methods->bindDoublePreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindDoublePreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -981,9 +955,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 			{
 				bool		dat = (bool) value;
 
-				idBindPreparedStatement = jni_methods->bindBooleanPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindBooleanPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -1010,9 +983,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				(*Jenv)->SetByteArrayRegion(Jenv, retArray, 0, len, (jbyte *) (dat));
 
 
-				idBindPreparedStatement = jni_methods->bindByteaPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, retArray, len, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindByteaPreparedStatement, retArray, len, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -1031,9 +1003,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				getTypeOutputInfo(type, &outputFunctionId, &typeVarLength);
 				outputString = OidOutputFunctionCall(outputFunctionId, value);
 				dat = (*Jenv)->NewStringUTF(Jenv, outputString);
-				idBindPreparedStatement = jni_methods->bindStringPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindStringPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 
 				(*Jenv)->DeleteLocalRef(Jenv, dat);
@@ -1050,9 +1021,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				getTypeOutputInfo(type, &outputFunctionId, &typeVarLength);
 				outputString = OidOutputFunctionCall(outputFunctionId, value);
 				dat = (*Jenv)->NewStringUTF(Jenv, outputString);
-				idBindPreparedStatement = jni_methods->bindTimePreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindTimePreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 
 				/* Return Java memory */
@@ -1070,9 +1040,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				getTypeOutputInfo(type, &outputFunctionId, &typeVarLength);
 				outputString = OidOutputFunctionCall(outputFunctionId, value);
 				dat = (*Jenv)->NewStringUTF(Jenv, outputString);
-				idBindPreparedStatement = jni_methods->bindTimeTZPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, dat, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindTimeTZPreparedStatement, dat, attnum, resultSetID);
 				jq_get_exception();
 
 				/* Return Java memory */
@@ -1089,9 +1058,8 @@ jq_bind_sql_var(Jconn * conn, Oid type, int attnum, Datum value, bool *isnull, i
 				Timestamp	valueTimestamp = DatumGetTimestamp(value);		/* Already in UTC time zone */
 				int64		valueMicroSecs = valueTimestamp + POSTGRES_TO_UNIX_EPOCH_USECS;
 
-				idBindPreparedStatement = jni_methods->bindTimestampPreparedStatement;
 				jq_exception_clear();
-				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, idBindPreparedStatement, valueMicroSecs, attnum, resultSetID);
+				(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->bindTimestampPreparedStatement, valueMicroSecs, attnum, resultSetID);
 				jq_get_exception();
 				break;
 			}
@@ -1190,20 +1158,16 @@ jq_get_column_infos(Jconn * conn, char *tablename)
 	jobject		JDBCUtilsObject;
 	jclass		JDBCUtilsClass;
 	jstring		jtablename = (*Jenv)->NewStringUTF(Jenv, tablename);
-	int			i;
 
 	/* getColumnNames */
-	jmethodID	idGetColumnNames;
 	jobjectArray columnNamesArray;
 	jsize		numberOfNames;
 
 	/* getColumnTypes */
-	jmethodID	idGetColumnTypes;
 	jobjectArray columnTypesArray;
 	jsize		numberOfTypes;
 
 	/* getPrimaryKey */
-	jmethodID	idGetPrimaryKey;
 	jobjectArray primaryKeyArray;
 	jsize		numberOfKeys;
 	List	   *primaryKey = NIL;
@@ -1227,24 +1191,21 @@ jq_get_column_infos(Jconn * conn, char *tablename)
 
 	jdbc_sig_int_interrupt_check_process();
 	/* getColumnNames */
-	idGetColumnNames = jni_methods->getColumnNames;
 	jq_exception_clear();
-	columnNamesArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetColumnNames, jtablename);
+	columnNamesArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, jni_methods->getColumnNames, jtablename);
 	jq_get_exception();
 	/* getColumnTypes */
-	idGetColumnTypes = jni_methods->getColumnTypes;
 	jq_exception_clear();
-	columnTypesArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetColumnTypes, jtablename);
+	columnTypesArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, jni_methods->getColumnTypes, jtablename);
 	jq_get_exception();
 	/* getPrimaryKey */
-	idGetPrimaryKey = jni_methods->getPrimaryKey;
 	jq_exception_clear();
-	primaryKeyArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetPrimaryKey, jtablename);
+	primaryKeyArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, jni_methods->getPrimaryKey, jtablename);
 	jq_get_exception();
 	if (primaryKeyArray != NULL)
 	{
 		numberOfKeys = (*Jenv)->GetArrayLength(Jenv, primaryKeyArray);
-		for (i = 0; i < numberOfKeys; i++)
+		for (int i = 0; i < numberOfKeys; i++)
 		{
 			char	   *tmpPrimaryKey = jdbc_convert_string_to_cstring((jobject) (*Jenv)->GetObjectArrayElement(Jenv, primaryKeyArray, i));
 
@@ -1266,7 +1227,7 @@ jq_get_column_infos(Jconn * conn, char *tablename)
 			ereport(ERROR, (errmsg("Cannot get the dependable columnInfo.")));
 		}
 
-		for (i = 0; i < numberOfNames; i++)
+		for (int i = 0; i < numberOfNames; i++)
 		{
 			/* init columnInfo */
 			char	   *tmpColumnNames = jdbc_convert_string_to_cstring((jobject) (*Jenv)->GetObjectArrayElement(Jenv, columnNamesArray, i));
@@ -1313,23 +1274,20 @@ jq_get_table_names(Jconn * conn)
 {
 	jobject		JDBCUtilsObject;
 	jclass		JDBCUtilsClass;
-	jmethodID	idGetTableNames;
 	jobjectArray tableNameArray;
 	List	   *tableName = NIL;
 	jsize		numberOfTables;
-	int			i;
 
 	jq_get_JDBCUtils(conn, &JDBCUtilsClass, &JDBCUtilsObject);
 
 	jdbc_sig_int_interrupt_check_process();
-	idGetTableNames = jni_methods->getTableNames;
 	jq_exception_clear();
-	tableNameArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, idGetTableNames);
+	tableNameArray = (*Jenv)->CallObjectMethod(Jenv, JDBCUtilsObject, jni_methods->getTableNames);
 	jq_get_exception();
 	if (tableNameArray != NULL)
 	{
 		numberOfTables = (*Jenv)->GetArrayLength(Jenv, tableNameArray);
-		for (i = 0; i < numberOfTables; i++)
+		for (int i = 0; i < numberOfTables; i++)
 		{
 			char	   *tmpTableName = jdbc_convert_string_to_cstring((jobject) (*Jenv)->GetObjectArrayElement(Jenv, tableNameArray, i));
 
@@ -1388,6 +1346,7 @@ jq_get_JDBCUtils(Jconn *conn, jclass *JDBCUtilsClass, jobject *JDBCUtilsObject)
 	}
 }
 
+// internal helper for jq_load_jni_methods
 static jmethodID find_jni_method_or_fail(jclass JDBCUtilsClass, char *name, char *signature)
 {
 	jmethodID   method;
