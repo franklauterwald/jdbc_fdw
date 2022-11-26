@@ -31,8 +31,8 @@ public class ResultSetInfo {
     this.pstmt = pstmt;
   }
 
-  public void setNumberOfAffectedRows(int fieldNumberOfAffectedRows) {
-    this.numberOfAffectedRows = fieldNumberOfAffectedRows;
+  public void setNumberOfAffectedRows(int numberOfAffectedRows) {
+    this.numberOfAffectedRows = numberOfAffectedRows;
   }
 
   public ResultSet getResultSet() {

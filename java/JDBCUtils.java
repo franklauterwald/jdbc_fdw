@@ -160,6 +160,7 @@ public class JDBCUtils implements CInterface {
     PreparedStatement stmt = getValidatedStatement(resultSetID);
     int numAffectedRows = stmt.executeUpdate();
     stmt.clearParameters();
+    // FIXME: this is never read back
     resultSetInfoMap.get(resultSetID).setNumberOfAffectedRows(numAffectedRows);
   }
 
@@ -170,7 +171,7 @@ public class JDBCUtils implements CInterface {
    *          NumberOfColumns on success
    */
   @Override
-  public int getNumberOfColumns(int resultSetID) throws SQLException {
+  public int getNumberOfColumns(int resultSetID) {
     return resultSetInfoMap.get(resultSetID).getNumberOfColumns();
   }
 

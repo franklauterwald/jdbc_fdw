@@ -1,42 +1,29 @@
 # contrib/jdbc_fdw/Makefile
 
+# these are used by the included (via contrib-global.mk) pgxs.mk
 MODULE_big = jdbc_fdw
-OBJS = jdbc_fdw.o option.o deparse.o connection.o jq.o
-
-PG_CPPFLAGS = -I$(libpq_srcdir)
-SHLIB_LINK = $(libpq) 
 EXTENSION = jdbc_fdw
 DATA = jdbc_fdw--1.0.sql jdbc_fdw--1.0--1.1.sql
+DATA_built = jdbc_fdw.jar
+REGRESS = postgresql/jdbc_fdw postgresql/int4 postgresql/int8 postgresql/float4 postgresql/float8 postgresql/select postgresql/insert postgresql/update postgresql/aggregates
 
-REGRESS = postgresql/jdbc_fdw postgresql/int4 postgresql/int8 postgresql/float4 postgresql/float8 postgresql/select postgresql/insert postgresql/update postgresql/aggregates 
+OBJS = jdbc_fdw.o option.o deparse.o connection.o jq.o
 
-JDBC_CONFIG = jdbc_config
+# these are defined in pgxs.mk
+PG_CPPFLAGS = -D'INSTALL_DIR=$(datadir)/$(datamoduledir)' -I$(libpq_srcdir)
+SHLIB_LINK = $(libpq)
 
 LIBDIR=/usr/lib64/
 
-SHLIB_LINK += -L$(LIBDIR) -ljvm -L .
- 
+SHLIB_LINK += -L$(LIBDIR) -ljvm -L.
 
 UNAME = $(shell uname)
 
-TRGTS = JAVAFILES
+jdbc_fdw.jar:
+	cd java && javac *.java && cd ..
+	cd java && jar cvf ../jdbc_fdw.jar *.class && cd ..
 
-JAVA_SOURCES = \
-	JDBCUtils.java \
-	JDBCDriverLoader.java \
-	CInterface.java
- 
-PG_CPPFLAGS=-D'PKG_LIB_DIR=$(pkglibdir)' -I$(libpq_srcdir)
-
-JFLAGS = -d $(pkglibdir)
-
-all:$(TRGTS)
-
-JAVAFILES:
-	javac $(JFLAGS) $(JAVA_SOURCES)
-
-# the db name is hard-coded in the tests
-override USE_MODULE_DB =
+all:$(jdbc_fdw.jar)
 
 ifdef USE_PGXS
 PG_CONFIG = pg_config

@@ -32,7 +32,7 @@
 
 #define Str(arg) #arg
 #define StrValue(arg) Str(arg)
-#define STR_PKGLIBDIR StrValue(PKG_LIB_DIR)
+#define STR_INSTALL_DIR StrValue(INSTALL_DIR)
 /* Number of days from unix epoch time (1970-01-01) to postgres epoch time (2000-01-01) */
 #define POSTGRES_TO_UNIX_EPOCH_DAYS 		(POSTGRES_EPOCH_JDATE - UNIX_EPOCH_JDATE)
 /* POSTGRES_TO_UNIX_EPOCH_DAYS to microseconds */
@@ -272,6 +272,7 @@ jdbc_detach_jvm()
 void
 jdbc_jvm_init(const ForeignServer * server, const UserMapping * user)
 {
+    // TODO: this is only set upon completion. Multiple simultaneous calls are still racy
 	static bool FunctionCallCheck = false;	/* This flag safeguards against
 											 * multiple calls of
 											 * jdbc_jvm_init() */
@@ -281,7 +282,6 @@ jdbc_jvm_init(const ForeignServer * server, const UserMapping * user)
 								 * not */
 	JavaVMInitArgs vm_args;
 	JavaVMOption *options;
-	char		strpkglibdir[] = STR_PKGLIBDIR;
 	char	   *classpath;
 	char	   *maxheapsizeoption = NULL;
 
@@ -295,8 +295,8 @@ jdbc_jvm_init(const ForeignServer * server, const UserMapping * user)
 
 	if (FunctionCallCheck == false)
 	{
-		classpath = (char *) palloc0(strlen(strpkglibdir) + 19);
-		snprintf(classpath, strlen(strpkglibdir) + 19, "-Djava.class.path=%s", strpkglibdir);
+		classpath = (char *) palloc0(strlen(STR_INSTALL_DIR) + 32);
+		snprintf(classpath, strlen(STR_INSTALL_DIR) + 32, "-Djava.class.path=%s/jdbc_fdw.jar", STR_INSTALL_DIR);
 
 		if (opts.maxheapsize != 0)
 		{						/* If the user has given a value for setting
@@ -428,7 +428,7 @@ jdbc_create_JDBC_connection(const ForeignServer * server, const UserMapping * us
 			(*Jenv)->DeleteLocalRef(Jenv, stringArray[i]);
 		}
 		(*Jenv)->DeleteLocalRef(Jenv, argArray);
-		ereport(ERROR, (errmsg("Failed to create java call")));
+		ereport(ERROR, (errmsg("Failed to create jdbc utils object")));
 	}
 	jq_exception_clear();
 	(*Jenv)->CallObjectMethod(Jenv, conn->JDBCUtilsObject, jni_methods->createConnection, keyid, argArray);
