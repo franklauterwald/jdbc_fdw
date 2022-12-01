@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * jdbc_fdw.c
- *        Foreign-data wrapper for remote PostgreSQL servers
+ *        Foreign-data wrapper for remote JDBC servers
  *
  * Portions Copyright (c) 2012-2014, PostgreSQL Global Development Group
  *
@@ -51,9 +51,13 @@
 #define Str(arg) #arg
 #define StrValue(arg) Str(arg)
 #define STR_PKGLIBDIR StrValue(PKG_LIB_DIR)
+#if PG_VERSION_NUM < 150000	
 #define IS_KEY_COLUMN(A)  ((strcmp(A->defname, "key") == 0) && \
                (strcmp(((Value *)(A->arg))->val.str, "true") == 0))
-
+#else
+#define IS_KEY_COLUMN(A) ((strcmp(A->defname, "key") == 0) && \
+               (strcmp((strVal(A->arg)), "true") == 0))
+#endif
 
 PG_MODULE_MAGIC;
 
@@ -444,11 +448,9 @@ jdbcGetForeignRelSize(PlannerInfo *root,
 		if (strcmp(def->defname, "use_remote_estimate") == 0)
 			fpinfo->use_remote_estimate = defGetBoolean(def);
 		else if (strcmp(def->defname, "fdw_startup_cost") == 0)
-			(void) parse_real(defGetString(def), &fpinfo->fdw_startup_cost, 0,
-							  NULL);
+			(void) parse_real(defGetString(def), &fpinfo->fdw_startup_cost, 0, NULL);
 		else if (strcmp(def->defname, "fdw_tuple_cost") == 0)
-			(void) parse_real(defGetString(def), &fpinfo->fdw_tuple_cost, 0,
-							  NULL);
+			(void) parse_real(defGetString(def), &fpinfo->fdw_tuple_cost, 0, NULL);
 	}
 	foreach(lc, fpinfo->table->options)
 	{
@@ -463,7 +465,7 @@ jdbcGetForeignRelSize(PlannerInfo *root,
 	 * identify which user to do remote access as during planning.  This
 	 * should match what ExecCheckRTEPerms() does.  If we fail due to lack of
 	 * permissions, the query would have failed at runtime anyway. And use
-	 * user idenfifier for get default indentifier quote from remote server.
+	 * user identifier for get default identifier quote from remote server.
 	 */
 	fpinfo->user = GetUserMapping(userid, fpinfo->server->serverid);
 	conn = jdbc_get_connection(fpinfo->server, fpinfo->user, false);
@@ -582,9 +584,7 @@ jdbcGetForeignPaths(PlannerInfo *root,
 	 */
 	add_path(baserel, (Path *)
 			 create_foreignscan_path(root, baserel,
-#if PG_VERSION_NUM >= 90600
 									 NULL,	/* default pathtarget */
-#endif
 									 fpinfo->rows,
 									 fpinfo->startup_cost,
 									 fpinfo->total_cost,
@@ -663,7 +663,6 @@ jdbcGetForeignPlan(PlannerInfo *root,
 		foreach(lc, scan_clauses)
 		{
 			RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
-
 
 			Assert(IsA(rinfo, RestrictInfo));
 
@@ -1151,11 +1150,10 @@ jdbcAddForeignUpdateTargets(
 
 	Oid			relid = RelationGetRelid(target_relation);
 	TupleDesc	tupdesc = target_relation->rd_att;
-	int			i;
 	bool		has_key = false;
 
 	/* loop through all columns of the foreign table */
-	for (i = 0; i < tupdesc->natts; ++i)
+	for (int i = 0; i < tupdesc->natts; ++i)
 	{
 		Form_pg_attribute att = TupleDescAttr(tupdesc, i);
 		AttrNumber	attrno = att->attnum;
@@ -1243,7 +1241,6 @@ jdbcPlanForeignModify(PlannerInfo *root,
 	Oid			foreignTableId;
 	List	   *condAttr = NULL;
 	TupleDesc	tupdesc;
-	int			i;
 	Jconn	   *conn;
 	ForeignTable *table;
 	ForeignServer *server;
@@ -1277,9 +1274,7 @@ jdbcPlanForeignModify(PlannerInfo *root,
 	 */
 	if (operation == CMD_INSERT)
 	{
-		int			attnum;
-
-		for (attnum = 1; attnum <= tupdesc->natts; attnum++)
+		for (int attnum = 1; attnum <= tupdesc->natts; attnum++)
 		{
 			Form_pg_attribute attr = TupleDescAttr(tupdesc, attnum - 1);
 
@@ -1315,7 +1310,7 @@ jdbcPlanForeignModify(PlannerInfo *root,
 	 * Add all primary key attribute names to condAttr used in where clause of
 	 * update
 	 */
-	for (i = 0; i < tupdesc->natts; ++i)
+	for (int i = 0; i < tupdesc->natts; ++i)
 	{
 		Form_pg_attribute att = TupleDescAttr(tupdesc, i);
 		AttrNumber	attrno = att->attnum;
@@ -1392,7 +1387,6 @@ jdbcBeginForeignModify(ModifyTableState *mtstate,
 	UserMapping *user;
 	ForeignTable *table;
 	Oid			foreignTableId = InvalidOid;
-	int			i;
 	Plan	   *subplan;
 
 	ereport(DEBUG3, (errmsg("In jdbcBeginForeignModify")));
@@ -1464,7 +1458,7 @@ jdbcBeginForeignModify(ModifyTableState *mtstate,
 
 	fmstate->junk_idx = palloc0(RelationGetDescr(rel)->natts * sizeof(AttrNumber));
 	/* loop through table columns */
-	for (i = 0; i < RelationGetDescr(rel)->natts; ++i)
+	for (int i = 0; i < RelationGetDescr(rel)->natts; ++i)
 	{
 		/*
 		 * for primary key columns, get the resjunk attribute number and store
@@ -1664,12 +1658,11 @@ jdbc_bind_junk_column_value(jdbcFdwModifyState * fmstate,
 							Oid foreignTableId,
 							int bindnum)
 {
-	int			i;
 	Datum		value;
 	Oid			typeoid;
 
 	/* Bind where condition using junk column */
-	for (i = 0; i < slot->tts_tupleDescriptor->natts; ++i)
+	for (int i = 0; i < slot->tts_tupleDescriptor->natts; ++i)
 	{
 		Form_pg_attribute att = TupleDescAttr(slot->tts_tupleDescriptor, i);
 		AttrNumber	attrno = att->attnum;
@@ -2655,8 +2648,8 @@ jdbc_close_cursor(Jconn * conn, unsigned int cursor_number)
 }
 
 /*
- * jdbc_prepare_foreign_modify Establish a prepared statement for execution
- * of INSERT/UPDATE/DELETE
+ * jdbc_prepare_foreign_modify
+ * Establish a prepared statement for execution of INSERT/UPDATE/DELETE
  */
 static void
 jdbc_prepare_foreign_modify(jdbcFdwModifyState * fmstate)
@@ -2702,7 +2695,7 @@ jdbcAnalyzeForeignTable(Relation relation,
 						AcquireSampleRowsFunc *func,
 						BlockNumber *totalpages)
 {
-	/* Not support now. */
+	/* Not supported now. */
 	return false;
 }
 

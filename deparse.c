@@ -983,7 +983,12 @@ jdbc_deparse_select_stmt_for_rel(StringInfo buf,
 static bool
 jdbc_is_builtin(Oid oid)
 {
+#if PG_VERSION_NUM < 150000	
 	return (oid < FirstBootstrapObjectId);
+#else
+	// see postgres commit a49d0812359
+	return (oid < FirstGenbkiObjectId);
+#endif
 }
 
 
